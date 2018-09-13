@@ -1,7 +1,7 @@
 
 FROM larjim/kademlialab:latest
 
-COPY . /home/go/src/main/
+COPY main /home/go/src/main/main
 
 
 
