@@ -1,0 +1,14 @@
+syntax = "proto3";
+package protobuf;
+
+message kMessage{
+    string msgType = 1;
+    string sndrAddress = 2; 
+    string sndrID = 3;
+    message lookupContact{
+        string rcvrAddress = 4;
+        string rcvrID = 5;
+        string dist = 6;
+    }
+    bytes data = 7;
+}
