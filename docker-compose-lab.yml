@@ -5,7 +5,7 @@ services:
     stdin_open: true
     tty: true
     deploy:
-      replicas: 100  
+      replicas: 2  
 #        resources:
 #           limits:
 #              cpus: "0.1"
