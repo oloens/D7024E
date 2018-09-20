@@ -1,11 +1,11 @@
 package d7024e
-
+/*
 import (
 	fmt "fmt"
 	"sync"
 
-	pb "../protobuf"
-	proto "github.com/golang/protobuf/proto"
+	pb "protobuf"
+	"proto"
 )
 
 type Message struct {
@@ -30,4 +30,4 @@ func (this *Message) handleMsg(channel chan []byte, me *Contact, network *Networ
 
 func buildMsg(input []string) *pb.KMessage {
 	return
-}
+}*/
