@@ -10,9 +10,10 @@ import (
 )
 
 type Network struct {
-	rt  *RoutingTable
-	me  *Contact
-	mtx *sync.Mutex
+	rt     *RoutingTable
+	me     *Contact
+	mtx    *sync.Mutex
+	target *KademliaID
 }
 
 func NewNetwork(me *Contact, rt *RoutingTable) Network {
@@ -28,35 +29,47 @@ func Listen(ip string, port int) {
 }
 
 func (network *Network) SendPingMessage(contact *Contact) {
-	// TODO
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "ping"})
+	sendMsg(contact.Address, message)
 }
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
-	// TODO
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_node", network.target.String()})
+	sendMsg(contact.Address, message)
 }
 
-func (network *Network) SendFindDataMessage(hash string) {
-	// TODO
+func (network *Network) SendFindDataMessage(hash string, contact *Contact) {
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_val", hash})
+	sendMsg(contact.Address, message)
 }
 
-func (network *Network) SendStoreMessage(data []byte) {
-	// TODO
+func (network *Network) SendStoreMessage(value string, key *KademliaID, contact *Contact) {
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "store", key.String(), value})
+	sendMsg(contact.Address, message)
 }
 
 //Message-delarna kan kanske flyttas till egen fil?
-func handleMsg(channel chan []byte, addr *net.UDPAddr) {
+func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	data := <-channel
 	message := &pb.KMessage{}
 	err := proto.Unmarshal(data, message)
 	if err != nil {
 		fmt.Println(err)
 	}
+	//update RoutingTable here?
 	switch message.GetMsgType() {
 	case "ping":
-		//TODO
+		response := buildMsg([]string{me.ID.String(), me.Address, "pong"})
+		sendMsg(message.GetSndrAddress(), response)
+	case "pong":
+
 	case "find_node":
 		//TODO
+	case "find_node_response":
+		//TODO
 	case "find_val":
+		//TODO
+	case "find_val_response":
 		//TODO
 	case "store":
 		//TODO
@@ -68,60 +81,76 @@ func handleMsg(channel chan []byte, addr *net.UDPAddr) {
 }
 
 func buildMsg(input []string) *pb.KMessage {
-	if input[0] == "ping" || input[0] == "pong" {
+	if input[2] == "ping" || input[2] == "pong" {
 		msg := &pb.KMessage{
-			MsgType:     proto.String(input[0]),
+			SndrID:      proto.String(input[0]),
 			SndrAddress: proto.String(input[1]),
-			SndrID:      proto.String(input[2]),
+			MsgType:     proto.String(input[2]),
 		}
 		return msg
 	}
 
-	if input[0] == "find_node" {
+	if input[2] == "find_node" {
 		msg := &pb.KMessage{
-			MsgType:     proto.String(input[0]),
+			SndrID:      proto.String(input[0]),
 			SndrAddress: proto.String(input[1]),
-			SndrID:      proto.String(input[2]),
+			MsgType:     proto.String(input[2]),
 			RcvrID:      proto.String(input[3]),
 		}
 		return msg
 	}
 
-	if input[0] == "find_val" {
+	if input[2] == "find_val" {
 		msg := &pb.KMessage{
-			MsgType:     proto.String(input[0]),
+			SndrID:      proto.String(input[0]),
 			SndrAddress: proto.String(input[1]),
-			SndrID:      proto.String(input[2]),
+			MsgType:     proto.String(input[2]),
 			Key:         proto.String(input[3]),
 		}
 		return msg
 	}
 
-	if input[0] == "find_node_response" || input[0] == "find_val_response" {
+	if input[2] == "find_node_response" || input[2] == "find_val_response" {
 		msg := &pb.KMessage{
-			MsgType:     proto.String(input[0]),
+			SndrID:      proto.String(input[0]),
 			SndrAddress: proto.String(input[1]),
-			SndrID:      proto.String(input[2]),
+			MsgType:     proto.String(input[2]),
 			Data:        []byte(input[3]),
 		}
 		return msg
 	}
 
-	if input[0] == "store" {
+	if input[2] == "store" {
 		msg := &pb.KMessage{
-			MsgType:     proto.String(input[0]),
+			SndrID:      proto.String(input[0]),
 			SndrAddress: proto.String(input[1]),
-			SndrID:      proto.String(input[2]),
+			MsgType:     proto.String(input[2]),
 			Key:         proto.String(input[3]),
-			Val:         proto.String(input[4]),
+			data:        []byte(input[4]),
 		}
 		return msg
 	} else {
 		msg := &pb.KMessage{
-			MsgType:     proto.String("Error, no valid message"),
+			SndrID:      proto.String(input[0]),
 			SndrAddress: proto.String(input[1]),
-			SndrID:      proto.String(input[2]),
+			SndrID:      proto.String("Error, no valid message"),
 		}
 		return msg
+	}
+}
+
+func sendMsg(address string, msg *pb.KMessage) {
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		fmt.Println("Marshalling error: ", err, " in sendMsg")
+	}
+	Conn, err := net.Dial("udp", address)
+	if err != nil {
+		fmt.Println("UDP error: ", err, " in sendMsg")
+	}
+	defer Conn.Close()
+	_, err = Conn.Write(data)
+	if err != nil {
+		fmt.Println("Writing error: ", err, " in sendMsg")
 	}
 }
