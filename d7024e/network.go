@@ -4,6 +4,7 @@ import (
 	fmt "fmt"
 	"net"
 	"sync"
+	"time"
 
 	pb "../protobuf"
 	proto "github.com/golang/protobuf/proto"
@@ -22,10 +23,28 @@ func NewNetwork(me *Contact, rt *RoutingTable) Network {
 	network.rt = rt
 	network.mtx = &sync.Mutex{}
 	return network
+
 }
 
-func Listen(ip string, port int) {
-	// TODO
+func (network *Network) Listen(me Contact, port int) {
+	address, err1 := net.ResolveUDPAddr("udp", me.Address)
+	Conn, err2 := net.ListenUDP("udp", address)
+	if (err1 != nil) || (err2 != nil) {
+		fmt.Println("Error listener: ", err1, " .... and : ", err2)
+	}
+	defer Conn.Close()
+	channel := make(chan []byte)
+	bufr := make([]byte, 4096)
+	for {
+		time.Sleep(5 * time.Millisecond)
+		n, _, err := Conn.ReadFromUDP(bufr)
+		go handleMsg(channel, &me, network)
+		channel <- bufr[:n]
+		if err != nil {
+			fmt.Println("Read error @Listen: ", err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func (network *Network) SendPingMessage(contact *Contact) {
