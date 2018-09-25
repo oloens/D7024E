@@ -1,23 +1,16 @@
 syntax = "proto3";
 package protobuf;
 
-enum rpcType{
-    PING = 0;
-    FIND_NODE = 1;
-    FIND_VAL = 2;
-    STORE = 3;
-}
-
 message kMessage{
-    string sndrAddress = 1; 
-    string sndrID = 2;
-    rpcType msgType = 3;
+    string sndrID = 1;
+    string sndrAddress = 2; 
+    string msgType = 3;
 
-    message lookupContact{
-        string rcvrAddress = 1;
-        string rcvrID = 2;
-        string dist = 3;
-    }
-    lookupContact lookupC = 4;
-    bytes data = 5;             //file
+    string rcvrID = 4;
+    string rcvrAddress = 5;
+    string dist = 6;
+
+    bytes data = 7;             //file
+    string key = 8;
+    string val = 9;
 }
