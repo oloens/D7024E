@@ -38,11 +38,9 @@ func (network *Network) Listen(me Contact, port int) {
 	fmt.Println("Listening...")
 	for {
 		time.Sleep(5 * time.Millisecond)
-		fmt.Println("attempting to read packet...")
 		n, _, err := Conn.ReadFromUDP(bufr)
 		go handleMsg(channel, &me, network)
 		channel <- bufr[:n]
-		fmt.Println("pkg received")
 		if err != nil {
 			fmt.Println("Read error @Listen: ", err)
 		}
@@ -81,11 +79,11 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	//update RoutingTable here?
 	switch message.GetMsgType() {
 	case "ping":
-		//response := buildMsg([]string{me.ID.String(), me.Address, "pong"})
-		//sendMsg(message.GetSndrAddress(), response)
-		fmt.Println("ping received from", message.GetSndrAddress())
+		response := buildMsg([]string{me.ID.String(), me.Address, "pong"})
+		sendMsg(message.GetSndrAddress(), response)
+		fmt.Println("ping received from " + message.GetSndrAddress() + " , sending pong back")
 	case "pong":
-
+		fmt.Println("pong (ping acknowledge) received from " + message.GetSndrAddress())
 	case "find_node":
 		//TODO
 	case "find_node_response":
