@@ -3,6 +3,7 @@ package d7024e
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // Contact definition
@@ -17,6 +18,14 @@ type Contact struct {
 func NewContact(id *KademliaID, address string) Contact {
 	return Contact{id, address, nil}
 }
+//Added code from us TODO actually test it
+func RestoreContact(contact string) Contact {
+	split := strings.Split(contact, "\"")
+	id := split[1]
+	addr := split[3]
+	return NewContact(NewKademliaID(id), addr)
+}
+
 
 // CalcDistance calculates the distance to the target and 
 // fills the contacts distance field

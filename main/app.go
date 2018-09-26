@@ -6,6 +6,8 @@ import (
 	"net"
 	pb "protobuf"
 	proto "proto"
+	"strconv"
+	
 	//"os"
 )
 
@@ -13,11 +15,24 @@ import (
 //just testing deployment of go in a docker container, and subsequently
 // deploying a cluster using docker swarm
 func main() {
+	
+
+
 	rawip := getIP()
 	ip := rawip+":8000"
-	me := d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
-	rt := d7024e.NewRoutingTable(me)
+	seed := rawip[len(rawip)-1:]
+	id := d7024e.NewRandomKademliaID()
+	seed_int, _ := strconv.Atoi(seed)
+	for i := 0; i < seed_int; i++ {
+	    id = d7024e.NewRandomKademliaID()
+	}
+	
+	me := d7024e.NewContact(id, ip)
+//	strContact := me.String()
 
+
+	rt := d7024e.NewRoutingTable(me)
+	rt.AddContact(me)
 	net := d7024e.NewNetwork(&me, rt)
 	go net.Listen(me, 8000)
 	tarip := "172.17.0.2:8000"
@@ -30,7 +45,7 @@ func main() {
 	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		net.SendPingMessage(&tar)
+		net.SendFindContactMessage(&tar)
 		//fmt.Println("sent ping msg, sleeping...")
 	}
 	}
