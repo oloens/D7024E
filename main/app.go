@@ -7,12 +7,34 @@ import (
 	pb "protobuf"
 	proto "proto"
 	//"os"
-	)
+)
 
 
 //just testing deployment of go in a docker container, and subsequently
 // deploying a cluster using docker swarm
 func main() {
+	rawip := getIP()
+	ip := rawip+":8000"
+	me := d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
+	rt := d7024e.NewRoutingTable(me)
+
+	net := d7024e.NewNetwork(&me, rt)
+	go net.Listen(me, 8000)
+	tarip := "172.17.0.2:8000"
+	if ip == tarip {
+		fmt.Println("not pinging myself")
+		for {
+			time.Sleep(1000 * time.Millisecond)
+		}
+	} else {
+	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		net.SendPingMessage(&tar)
+		//fmt.Println("sent ping msg, sleeping...")
+	}
+	}
+	/*
 	//fmt.Println(os.Args[1])
 
 //	test := d7024e.NewContact(d7024e.NewRandomKademliaID(), "127.0.0.1:8000")
@@ -34,9 +56,23 @@ func sendLoop(msg *pb.KMessage, target *d7024e.Contact) {
 		//fmt.Println("trying to send message")
 		sendUDP(msg, target)
 	}
-
+*/
 }
-
+func getIP() string {
+	iface, _ := net.InterfaceByName("eth0")
+        addrs, _ := iface.Addrs()
+        for _, addr := range addrs {
+                var ip net.IP
+                switch v := addr.(type) {
+                        case *net.IPNet:
+                                ip = v.IP
+                        case *net.IPAddr:
+                                ip = v.IP
+                        }
+                return ip.String()
+        }
+	return "error"
+    }
 func buildMessage() *pb.KMessage {
 	t1 := "testaddress"
 	msg := &pb.KMessage{
