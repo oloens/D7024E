@@ -32,13 +32,18 @@ func main() {
 
 
 	rt := d7024e.NewRoutingTable(me)
-	rt.AddContact(me)
+	//rt.AddContact(me)
 
 	//testing store
 	kademlia := &d7024e.Kademlia{}
 	val := []byte("testvalue asdasd tjenatjena")
+	val2 := []byte("testvalue2 asdasd tjenatjena")
 	kademlia.Store(val)
+	kademlia.Store(val2)
 	hash := d7024e.Hash(val)
+	hash2 := d7024e.Hash(val2)
+	kademlia.Pin(hash2)
+	go kademlia.Purge()
 	//result := kademlia.LookupData(hash)
 	//fmt.Println(string(result[:]))
 	//fmt.Println(string(hash[:]))
