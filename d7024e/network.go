@@ -40,7 +40,8 @@ func (network *Network) Listen(me Contact, port int) {
 	for {
 		time.Sleep(5 * time.Millisecond)
 		n, _, err := Conn.ReadFromUDP(bufr)
-		go handleMsg(channel, &me, network)
+		//go handleMsg(channel, &me, network)
+		go handleContactMsg(channel, &me, network)
 		channel <- bufr[:n]
 		if err != nil {
 			fmt.Println("Read error @Listen: ", err)
@@ -65,6 +66,11 @@ func (network *Network) SendFindDataMessage(hash string, contact *Contact) {
 }
 
 func (network *Network) SendStoreMessage(value string, key *KademliaID, contact *Contact) {
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "store", key.String(), value})
+	sendMsg(contact.Address, message)
+}
+
+func (network *Network) SendContactsMessage(value string, key *KademliaID, contact *Contact) {
 	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "store", key.String(), value})
 	sendMsg(contact.Address, message)
 }
@@ -103,8 +109,22 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		fmt.Println("Error in handleMsg switch")
 
 	}
+	if message.GetContacts() != nil {
+		fmt.Println(message.GetContacts)
+	}
 }
 
+func handleContactMsg(channel chan []byte, me *Contact, network *Network) {
+	data := <-channel
+	message := &pb.KMessage{}
+	err := proto.Unmarshal(data, message)
+	if err != nil {
+		fmt.Println(err)
+	}
+	m := message.GetContacts()
+	fmt.Println(m)
+
+}
 func buildMsg(input []string) *pb.KMessage {
 	if input[2] == "ping" || input[2] == "pong" {
 		msg := &pb.KMessage{
@@ -154,6 +174,25 @@ func buildMsg(input []string) *pb.KMessage {
 			Data:        []byte(input[4]),
 		}
 		return msg
+	}
+	if input[2] == "contacts" {
+		msg := &pb.KMessage{
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
+			Key:         input[3], //proto.String(input[3]),
+		}
+		return msg
+	}
+
+	if input[2] == "find_node_response" || input[2] == "find_val_response" {
+		msg := &pb.KMessage{
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
+			Data:        []byte(input[3]),
+		}
+		return msg
 	} else {
 		msg := &pb.KMessage{
 			SndrID:      input[0],                  //proto.String(input[0]),
@@ -167,6 +206,7 @@ func buildMsg(input []string) *pb.KMessage {
 func sendMsg(address string, msg *pb.KMessage) {
 	data, err := proto.Marshal(msg)
 	if err != nil {
+
 		fmt.Println("Marshalling error: ", err, " in sendMsg")
 	}
 	Conn, err := net.Dial("udp", address)

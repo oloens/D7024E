@@ -1,35 +1,34 @@
 package main
+
 import (
-	"time"
 	"fmt"
-	"d7024e"
 	"net"
-	pb "protobuf"
-	proto "proto"
 	"strconv"
-	
+	"time"
+
+	proto "github.com/golang/protobuf/proto"
+
+	"../d7024e"
+	pb "../protobuf"
 	//"os"
 )
-
 
 //just testing deployment of go in a docker container, and subsequently
 // deploying a cluster using docker swarm
 func main() {
-	
-
 
 	rawip := getIP()
-	ip := rawip+":8000"
+	ip := rawip + ":8000"
 	seed := rawip[len(rawip)-1:]
 	id := d7024e.NewRandomKademliaID()
 	seed_int, _ := strconv.Atoi(seed)
 	for i := 0; i < seed_int; i++ {
-	    id = d7024e.NewRandomKademliaID()
+		id = d7024e.NewRandomKademliaID()
 	}
-	
-	me := d7024e.NewContact(id, ip)
-//	strContact := me.String()
 
+	me := d7024e.NewContact(id, ip)
+	me2 := me.String()
+	//	strContact := me.String()
 
 	rt := d7024e.NewRoutingTable(me)
 	rt.AddContact(me)
@@ -42,59 +41,89 @@ func main() {
 			time.Sleep(1000 * time.Millisecond)
 		}
 	} else {
-	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		net.SendFindContactMessage(&tar)
-		//fmt.Println("sent ping msg, sleeping...")
-	}
+		tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
+		for {
+			time.Sleep(1000 * time.Millisecond)
+			SendContactsMessage([]string{me2, me2, me2}, &tar)
+			//fmt.Println("sent ping msg, sleeping...")
+		}
 	}
 	/*
-	//fmt.Println(os.Args[1])
+			//fmt.Println(os.Args[1])
 
-//	test := d7024e.NewContact(d7024e.NewRandomKademliaID(), "127.0.0.1:8000")
-//	rt := d7024e.NewRoutingTable(test)
-	c := make(chan *pb.KMessage)
-	go tempListen(c)
-	msg := buildMessage()
-	target := d7024e.NewContact(d7024e.NewRandomKademliaID(), "172.17.0.2:8000")
-	go sendLoop(msg, &target)
-	for {
-		d := <-c
-		fmt.Println(d.GetSndrAddress())
+		//	test := d7024e.NewContact(d7024e.NewRandomKademliaID(), "127.0.0.1:8000")
+		//	rt := d7024e.NewRoutingTable(test)
+			c := make(chan *pb.KMessage)
+			go tempListen(c)
+			msg := buildMessage()
+			target := d7024e.NewContact(d7024e.NewRandomKademliaID(), "172.17.0.2:8000")
+			go sendLoop(msg, &target)
+			for {
+				d := <-c
+				fmt.Println(d.GetSndrAddress())
+			}
+		}
+		func sendLoop(msg *pb.KMessage, target *d7024e.Contact) {
+			for{
+
+				time.Sleep(1000 * time.Millisecond)
+				//fmt.Println("trying to send message")
+				sendUDP(msg, target)
+			}
+	*/
+}
+func SendContactsMessage(value []string, contact *d7024e.Contact) {
+	message := buildContactsMsg(value)
+	sendMsg(contact.Address, message)
+}
+
+//SEND FROM NETWORK
+func sendMsg(address string, msg *pb.KMessage) {
+	data, err := proto.Marshal(msg)
+	if err != nil {
+
+		fmt.Println("Marshalling error: ", err, " in sendMsg")
+	}
+	Conn, err := net.Dial("udp", address)
+	if err != nil {
+		fmt.Println("UDP error: ", err, " in sendMsg")
+	}
+	defer Conn.Close()
+	_, err = Conn.Write(data)
+	if err != nil {
+		fmt.Println("Writing error: ", err, " in sendMsg")
 	}
 }
-func sendLoop(msg *pb.KMessage, target *d7024e.Contact) {
-	for{
-		
-		time.Sleep(1000 * time.Millisecond)
-		//fmt.Println("trying to send message")
-		sendUDP(msg, target)
-	}
-*/
-}
+
 func getIP() string {
 	iface, _ := net.InterfaceByName("eth0")
-        addrs, _ := iface.Addrs()
-        for _, addr := range addrs {
-                var ip net.IP
-                switch v := addr.(type) {
-                        case *net.IPNet:
-                                ip = v.IP
-                        case *net.IPAddr:
-                                ip = v.IP
-                        }
-                return ip.String()
-        }
+	addrs, _ := iface.Addrs()
+	for _, addr := range addrs {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		return ip.String()
+	}
 	return "error"
-    }
+}
 func buildMessage() *pb.KMessage {
 	t1 := "testaddress"
 	msg := &pb.KMessage{
-		SndrAddress: t1,//proto.String(t1),
+		SndrAddress: t1, //proto.String(t1),
 	}
 	return msg
 }
+func buildContactsMsg(input []string) *pb.KMessage {
+	msg := &pb.KMessage{
+		Contacts: input,
+	}
+	return msg
+}
+
 func tempListen(c chan *pb.KMessage) {
 	udpAddr, err := net.ResolveUDPAddr("udp", ":8000")
 	if err != nil {
@@ -107,9 +136,8 @@ func tempListen(c chan *pb.KMessage) {
 	fmt.Println("listening")
 	for {
 		//time.Sleep(500 * time.Millisecond)
-		 receiveUDP(udpconn, c)
+		receiveUDP(udpconn, c)
 	}
-
 
 }
 func receiveUDP(conn net.Conn, c chan *pb.KMessage) {
