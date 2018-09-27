@@ -54,7 +54,7 @@ func (network *Network) SendPingMessage(contact *Contact) {
 }
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
-	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_node", network.me.ID.String()})
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_node", network.me.ID.String(), contact.ID.String()})
 	sendMsg(contact.Address, message)
 }
 
@@ -85,11 +85,18 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	case "pong":
 		fmt.Println("pong (ping acknowledge) received from " + message.GetSndrAddress())
 	case "find_node":
-		targetKey :=  message.GetSndrID()
+		targetKey :=  message.GetKey()
 		target := NewKademliaID(targetKey)
-		contacts := network.rt.FindClosestContacts(target, 1)
-		fmt.Println(contacts)	
+		contacts := network.rt.FindClosestContacts(target, 20)
+		fmt.Println(contacts)
+		me_with_dist := *me
+		me_with_dist.CalcDistance(target)
+		if len(contacts)<20 {
+			contacts = append(contacts, me_with_dist)
+		}
+		//TODO Actually return the contacts
 	case "find_node_response":
+		
 		//TODO
 	case "find_val":
 		//TODO
@@ -120,6 +127,7 @@ func buildMsg(input []string) *pb.KMessage {
 			SndrAddress: input[1],//proto.String(input[1]),
 			MsgType:     input[2],//proto.String(input[2]),
 			RcvrID:      input[3],//proto.String(input[3]),
+			Key:	     input[4],
 		}
 		return msg
 	}

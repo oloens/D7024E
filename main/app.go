@@ -1,6 +1,6 @@
 package main
 import (
-	"time"
+	//"time"
 	"fmt"
 	"d7024e"
 	"net"
@@ -33,6 +33,17 @@ func main() {
 
 	rt := d7024e.NewRoutingTable(me)
 	rt.AddContact(me)
+
+	//testing store
+	kademlia := &d7024e.Kademlia{}
+	val := []byte("testvalue asdasd tjenatjena")
+	kademlia.Store(val)
+	hash := d7024e.Hash(val)
+	result := kademlia.LookupData(hash)
+	fmt.Println(string(result[:]))
+
+
+	/*
 	net := d7024e.NewNetwork(&me, rt)
 	go net.Listen(me, 8000)
 	tarip := "172.17.0.2:8000"
