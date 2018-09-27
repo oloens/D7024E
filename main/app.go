@@ -1,6 +1,6 @@
 package main
 import (
-	//"time"
+	"time"
 	"fmt"
 	"d7024e"
 	"net"
@@ -39,12 +39,13 @@ func main() {
 	val := []byte("testvalue asdasd tjenatjena")
 	kademlia.Store(val)
 	hash := d7024e.Hash(val)
-	result := kademlia.LookupData(hash)
-	fmt.Println(string(result[:]))
+	//result := kademlia.LookupData(hash)
+	//fmt.Println(string(result[:]))
+	//fmt.Println(string(hash[:]))
+	//fmt.Println(me.ID.String())
 
-
-	/*
-	net := d7024e.NewNetwork(&me, rt)
+	
+	net := d7024e.NewNetwork(&me, rt, kademlia)
 	go net.Listen(me, 8000)
 	tarip := "172.17.0.2:8000"
 	if ip == tarip {
@@ -56,7 +57,8 @@ func main() {
 	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		net.SendFindContactMessage(&tar)
+		//net.SendFindContactMessage(&tar)
+		net.SendFindDataMessage(hash, &tar)
 		//fmt.Println("sent ping msg, sleeping...")
 	}
 	}

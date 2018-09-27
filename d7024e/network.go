@@ -15,13 +15,15 @@ type Network struct {
 	me     *Contact
 	mtx    *sync.Mutex
 	target *KademliaID
+	kademlia *Kademlia
 }
 
-func NewNetwork(me *Contact, rt *RoutingTable) Network {
+func NewNetwork(me *Contact, rt *RoutingTable, kademlia *Kademlia) Network {
 	network := Network{}
 	network.me = me
 	network.rt = rt
 	network.mtx = &sync.Mutex{}
+	network.kademlia = kademlia
 	return network
 
 }
@@ -96,12 +98,33 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		}
 		//TODO Actually return the contacts
 	case "find_node_response":
-		
 		//TODO
 	case "find_val":
-		//TODO
+		targetKey :=  message.GetKey()
+		result := network.kademlia.LookupData(targetKey)
+		if result != nil {
+			response := buildMsg([]string{me.ID.String(), me.Address, "find_val_response", string(result[:])})
+                    sendMsg(message.GetSndrAddress(), response)
+
+		} else {
+		    target := NewKademliaID(targetKey)
+                    contacts := network.rt.FindClosestContacts(target, 20)
+                    fmt.Println(contacts)
+                    me_with_dist := *me
+                    me_with_dist.CalcDistance(target)
+                    if len(contacts)<20 {
+                        contacts = append(contacts, me_with_dist)
+                    }
+                    //TODO Actually return the contacts
+		}
+
 	case "find_val_response":
-		//TODO
+		data := message.GetData()
+		if data != nil {
+			fmt.Println("find_value successful!")
+			fmt.Println(string(data[:]))
+			fmt.Println("above is value")
+		}
 	case "store":
 		//TODO
 
