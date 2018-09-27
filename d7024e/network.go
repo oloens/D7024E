@@ -37,7 +37,7 @@ func (network *Network) Listen(me Contact, port int) {
 	defer Conn.Close()
 	channel := make(chan []byte)
 	bufr := make([]byte, 4096)
-	fmt.Println("Listening...")
+	//fmt.Println("Listening...")
 	for {
 		time.Sleep(5 * time.Millisecond)
 		n, _, err := Conn.ReadFromUDP(bufr)

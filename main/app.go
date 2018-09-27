@@ -7,8 +7,9 @@ import (
 	pb "protobuf"
 	proto "proto"
 	"strconv"
-	
-	//"os"
+	"bufio"
+	"os"
+	"strings"
 )
 
 
@@ -54,9 +55,24 @@ func main() {
 	go net.Listen(me, 8000)
 	tarip := "172.17.0.2:8000"
 	if ip == tarip {
-		fmt.Println("not pinging myself")
+		//fmt.Println("not pinging myself")
+		reader := bufio.NewReader(os.Stdin)
 		for {
-			time.Sleep(1000 * time.Millisecond)
+		   command, _ := reader.ReadString('\n')
+		   command = strings.Replace(command, "\n", "", -1)
+		   split := strings.Split(command, " ")
+		   switch split[0] {
+		   case "store":
+			   fmt.Println("executing store command on string: " + split[1])
+			   value := []byte(split[1])
+			   kademlia.Store(value)
+			   if split[len(split)-1] == "--pin" {
+				kademlia.Pin(d7024e.Hash(value))
+			}
+		   default:
+			   fmt.Println("invalid command or not yet implemented")
+		   }
+		   
 		}
 	} else {
 	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
