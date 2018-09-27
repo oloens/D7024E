@@ -10,7 +10,13 @@ message kMessage{
     string rcvrAddress = 5;
     string dist = 6;
 
+
     bytes data = 7;             //file
     string key = 8;
     string val = 9;
+    repeated Contact contacts = 10;
+}
+
+message Contact {
+    string contactID = 1;
 }

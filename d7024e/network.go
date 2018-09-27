@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	pb "protobuf"
-	proto "proto"
+	proto "github.com/golang/protobuf/proto"
+
+	pb "../protobuf"
 )
 
 type Network struct {
@@ -27,7 +28,7 @@ func NewNetwork(me *Contact, rt *RoutingTable) Network {
 }
 
 func (network *Network) Listen(me Contact, port int) {
-	address, err1 := net.ResolveUDPAddr("udp", ":8000")//me.Address)
+	address, err1 := net.ResolveUDPAddr("udp", ":8000") //me.Address)
 	Conn, err2 := net.ListenUDP("udp", address)
 	if (err1 != nil) || (err2 != nil) {
 		fmt.Println("Error listener: ", err1, " .... and : ", err2)
@@ -85,10 +86,10 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	case "pong":
 		fmt.Println("pong (ping acknowledge) received from " + message.GetSndrAddress())
 	case "find_node":
-		targetKey :=  message.GetSndrID()
+		targetKey := message.GetSndrID()
 		target := NewKademliaID(targetKey)
 		contacts := network.rt.FindClosestContacts(target, 1)
-		fmt.Println(contacts)	
+		fmt.Println(contacts)
 	case "find_node_response":
 		//TODO
 	case "find_val":
@@ -107,38 +108,38 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 func buildMsg(input []string) *pb.KMessage {
 	if input[2] == "ping" || input[2] == "pong" {
 		msg := &pb.KMessage{
-			SndrID:      input[0],//proto.String(input[0]),
-			SndrAddress: input[1],//proto.String(input[1]),
-			MsgType:     input[2],//proto.String(input[2]),
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
 		}
 		return msg
 	}
 
 	if input[2] == "find_node" {
 		msg := &pb.KMessage{
-			SndrID:      input[0],//proto.String(input[0]),
-			SndrAddress: input[1],//proto.String(input[1]),
-			MsgType:     input[2],//proto.String(input[2]),
-			RcvrID:      input[3],//proto.String(input[3]),
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
+			RcvrID:      input[3], //proto.String(input[3]),
 		}
 		return msg
 	}
 
 	if input[2] == "find_val" {
 		msg := &pb.KMessage{
-			SndrID:      input[0],//proto.String(input[0]),
-			SndrAddress: input[1],//proto.String(input[1]),
-			MsgType:     input[2],//proto.String(input[2]),
-			Key:         input[3],//proto.String(input[3]),
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
+			Key:         input[3], //proto.String(input[3]),
 		}
 		return msg
 	}
 
 	if input[2] == "find_node_response" || input[2] == "find_val_response" {
 		msg := &pb.KMessage{
-			SndrID:      input[0],//proto.String(input[0]),
-			SndrAddress: input[1],//proto.String(input[1]),
-			MsgType:     input[2],//proto.String(input[2]),
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
 			Data:        []byte(input[3]),
 		}
 		return msg
@@ -146,18 +147,18 @@ func buildMsg(input []string) *pb.KMessage {
 
 	if input[2] == "store" {
 		msg := &pb.KMessage{
-			SndrID:      input[0],//proto.String(input[0]),
-			SndrAddress: input[1],//proto.String(input[1]),
-			MsgType:     input[2],//proto.String(input[2]),
-			Key:         input[3],//proto.String(input[3]),
+			SndrID:      input[0], //proto.String(input[0]),
+			SndrAddress: input[1], //proto.String(input[1]),
+			MsgType:     input[2], //proto.String(input[2]),
+			Key:         input[3], //proto.String(input[3]),
 			Data:        []byte(input[4]),
 		}
 		return msg
 	} else {
 		msg := &pb.KMessage{
-			SndrID:      input[0],//proto.String(input[0]),
-			SndrAddress: input[1],//proto.String(input[1]),
-			MsgType:      "Error, no valid message",//proto.String("Error, no valid message"),
+			SndrID:      input[0],                  //proto.String(input[0]),
+			SndrAddress: input[1],                  //proto.String(input[1]),
+			MsgType:     "Error, no valid message", //proto.String("Error, no valid message"),
 		}
 		return msg
 	}
