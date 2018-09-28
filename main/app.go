@@ -41,7 +41,7 @@ func main() {
 	val2 := []byte("testvalue2 asdasd tjenatjena")
 	kademlia.Store(val)
 	kademlia.Store(val2)
-	hash := d7024e.Hash(val)
+	//hash := d7024e.Hash(val)
 	hash2 := d7024e.Hash(val2)
 	kademlia.Pin(hash2)
 	go kademlia.Purge()
@@ -89,8 +89,11 @@ func main() {
 	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		//net.SendFindContactMessage(&tar)
-		net.SendFindDataMessage(hash, &tar)
+		net.SendFindContactMessage(&tar)
+		for {
+			time.Sleep(1000 * time.Millisecond)
+		}
+		//net.SendFindDataMessage(hash, &tar)
 		//fmt.Println("sent ping msg, sleeping...")
 	}
 	}

@@ -90,15 +90,27 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		targetKey :=  message.GetKey()
 		target := NewKademliaID(targetKey)
 		contacts := network.rt.FindClosestContacts(target, 20)
-		fmt.Println(contacts)
+		sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
+		sender.CalcDistance(me.ID)
+		network.rt.AddContact(sender)
+
 		me_with_dist := *me
 		me_with_dist.CalcDistance(target)
 		if len(contacts)<20 {
 			contacts = append(contacts, me_with_dist)
 		}
-		//TODO Actually return the contacts
+		var contacts_string []string
+		for _, ct := range contacts {
+			contacts_string = append(contacts_string, ct.String())
+		}
+		response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_node_response"}, contacts_string)
+		sendMsg(message.GetSndrAddress(), response)
 	case "find_node_response":
-		//TODO
+		contacts := message.GetContacts()
+		fmt.Println("contacts returned from request: ")
+		for _, ct := range contacts {
+			fmt.Println(ct)
+		}
 	case "find_val":
 		targetKey :=  message.GetKey()
 		result := network.kademlia.LookupData(targetKey)
@@ -133,7 +145,26 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 
 	}
 }
+func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
+        if input[2] == "find_node_response" {
+                msg := &pb.KMessage{
+                        SndrID:         input[0], 
+                        SndrAddress:    input[1],
+                        MsgType:        input[2],
+                        Contacts:       contacts,
+		}
+		return msg
+	} else {
+                msg := &pb.KMessage{
+                        SndrID:      input[0],//proto.String(input[0]),
+                        SndrAddress: input[1],//proto.String(input[1]),
+                        MsgType:      "Error, no valid message",//proto.String("Error, no valid message"),
+                }
+                return msg
+        }
 
+	
+}
 func buildMsg(input []string) *pb.KMessage {
 	if input[2] == "ping" || input[2] == "pong" {
 		msg := &pb.KMessage{

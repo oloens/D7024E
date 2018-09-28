@@ -1,3 +1,4 @@
+
 syntax = "proto3";
 package protobuf;
 
@@ -10,7 +11,9 @@ message kMessage{
     string rcvrAddress = 5;
     string dist = 6;
 
+
     bytes data = 7;             //file
     string key = 8;
     string val = 9;
+    repeated string contacts = 10;
 }
