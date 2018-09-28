@@ -41,7 +41,7 @@ func main() {
 	val2 := []byte("testvalue2asdasdtjenatjena")
 	kademlia.Store(val)
 	kademlia.Store(val2)
-	hash := d7024e.Hash(val)
+	//hash := d7024e.Hash(val)
 	hash2 := d7024e.Hash(val2)
 	kademlia.Pin(hash2)
 	go kademlia.Purge()
@@ -55,10 +55,18 @@ func main() {
 	go net.Listen(me, 8000)
 	tarip := "172.17.0.2:8000"
 	//tarip := "10.0.0.2:8000"
-	if ip == tarip {
-		//fmt.Println("not pinging myself")
-		reader := bufio.NewReader(os.Stdin)
-		for {
+	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
+	if ip != tarip {
+		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
+		time.Sleep(1000 * time.Millisecond)
+		net.SendFindContactMessage(&tar)
+		//net.SendFindDataMessage(hash, &tar)
+		//fmt.Println("sent ping msg, sleeping...")
+	
+	}
+	
+	reader := bufio.NewReader(os.Stdin)
+	for {
 		   command, _ := reader.ReadString('\n')
 		   command = strings.Replace(command, "\n", "", -1)
 		   split := strings.Split(command, " ")
@@ -66,10 +74,15 @@ func main() {
 		   case "store":
 			   fmt.Println("executing store command on string: " + split[1])
 			   value := []byte(split[1])
-			   kademlia.Store(value)
-			   if split[len(split)-1] == "--pin" {
-				kademlia.Pin(d7024e.Hash(value)) 
-			}
+			   hash := d7024e.Hash(value)
+			   val_string := string(value[:])
+			   key := d7024e.NewKademliaID(hash)
+
+			   net.SendStoreMessage(val_string, key, &tar)
+			   //kademlia.Store(value)
+			   //if split[len(split)-1] == "--pin" {
+			//	kademlia.Pin(d7024e.Hash(value))
+			//}
 		   case "files":
 		   	   fmt.Println("showing all file values")
 		   	   for i, file := range kademlia.GetFiles() {
@@ -84,40 +97,9 @@ func main() {
 		   default:
 			   fmt.Println("invalid command or not yet implemented")
 		   }
-		   
-		}
-	} else {
-	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		//net.SendFindContactMessage(&tar)
-		net.SendFindDataMessage(hash, &tar)
-		//fmt.Println("sent ping msg, sleeping...")
-	}
-	}
-	/*
-	//fmt.Println(os.Args[1])
 
-//	test := d7024e.NewContact(d7024e.NewRandomKademliaID(), "127.0.0.1:8000")
-//	rt := d7024e.NewRoutingTable(test)
-	c := make(chan *pb.KMessage)
-	go tempListen(c)
-	msg := buildMessage()
-	target := d7024e.NewContact(d7024e.NewRandomKademliaID(), "172.17.0.2:8000")
-	go sendLoop(msg, &target)
-	for {
-		d := <-c
-		fmt.Println(d.GetSndrAddress())
-	}
 }
-func sendLoop(msg *pb.KMessage, target *d7024e.Contact) {
-	for{
-		
-		time.Sleep(1000 * time.Millisecond)
-		//fmt.Println("trying to send message")
-		sendUDP(msg, target)
-	}
-*/
+	
 }
 func getIP() string {
 	iface, _ := net.InterfaceByName("eth0")
