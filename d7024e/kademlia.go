@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 	"fmt"
-	"strconv"
+	//"strconv"
 )
 
 type Kademlia struct {
@@ -15,6 +15,7 @@ type File struct {
 	Hash	string
 	Value	[]byte
 	Pin	bool
+	TimeSinceRepublish int
 }
 func (kademlia Kademlia) GetFiles() []File {
 	return kademlia.files
@@ -50,7 +51,14 @@ func Hash(data []byte) string {
 }
 func (kademlia *Kademlia) Store(data []byte) {
 	hash := Hash(data)
-	file := File{hash, data, false}
+	for i, file := range kademlia.files {
+		if file.Hash == hash {
+			kademlia.files[i].TimeSinceRepublish = 0
+			return
+		}
+	}
+
+	file := File{hash, data, false, 0}
 	kademlia.AddFile(file)
 }
 func (kademlia *Kademlia) index(hash string) int { //using the outcommended stuff in pin/unpin did not work, TODO fix race conditions here lol
@@ -93,20 +101,22 @@ func (kademlia *Kademlia) Unpin(hash string) {
 	kademlia.files[i].Pin = false
 	fmt.Println("successfully unpinned file with hash " + hash)
 }
+
 func (kademlia *Kademlia) Purge() {
-	timer := time.NewTimer(15 * time.Second)
+	timer := time.NewTimer(5 * time.Second)
 	<-timer.C
-	count := 0
+	for i, _ := range kademlia.files {
+		kademlia.files[i].TimeSinceRepublish += 5
+	}
 	var newfiles []File
 	for _, file := range kademlia.files {
-		if file.Pin == true {
+		if file.Pin == true || file.TimeSinceRepublish <= 30 {
 			newfiles = append(newfiles, file)
 		} else {
-			count = count + 1
+			fmt.Println("timer expired for file with hash: " + file.Hash + " , removing..")
 		}
 	}
 	kademlia.files = newfiles
-	fmt.Println("purge complete, removed " + strconv.Itoa(count) + " file(s)")
 	kademlia.Purge()
 }
 

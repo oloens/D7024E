@@ -119,15 +119,24 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
                     sendMsg(message.GetSndrAddress(), response)
 
 		} else {
-		    target := NewKademliaID(targetKey)
-                    contacts := network.rt.FindClosestContacts(target, 20)
-                    fmt.Println(contacts)
-                    me_with_dist := *me
-                    me_with_dist.CalcDistance(target)
-                    if len(contacts)<20 {
-                        contacts = append(contacts, me_with_dist)
-                    }
-                    //TODO Actually return the contacts
+			target := NewKademliaID(targetKey)
+	                contacts := network.rt.FindClosestContacts(target, 20)
+                	sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
+                	sender.CalcDistance(me.ID)
+                	network.rt.AddContact(sender)
+
+                	me_with_dist := *me
+                	me_with_dist.CalcDistance(target)
+                	if len(contacts)<20 {
+                        	contacts = append(contacts, me_with_dist)
+                	}
+                	var contacts_string []string
+                	for _, ct := range contacts {
+                        	contacts_string = append(contacts_string, ct.String())
+                	}
+                	response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_val_response"}, contacts_string)
+                	sendMsg(message.GetSndrAddress(), response)
+
 		}
 
 	case "find_val_response":
@@ -136,9 +145,17 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 			fmt.Println("find_value successful!")
 			fmt.Println(string(data[:]))
 			fmt.Println("above is value")
+		} else {
+			fmt.Println("did not find value initially, but got contacts: ")
+			for _, ct := range message.GetContacts() {
+				fmt.Println(ct)
+			}
 		}
 	case "store":
-		//TODO
+		data := message.GetData()
+		key := message.GetKey()
+		network.kademlia.Store(data)
+		fmt.Println("Store RPC received, storing file with hash: " + key)
 
 	default:
 		fmt.Println("Error in handleMsg switch")
@@ -146,7 +163,6 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	}
 }
 func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
-        if input[2] == "find_node_response" {
                 msg := &pb.KMessage{
                         SndrID:         input[0], 
                         SndrAddress:    input[1],
@@ -154,16 +170,6 @@ func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
                         Contacts:       contacts,
 		}
 		return msg
-	} else {
-                msg := &pb.KMessage{
-                        SndrID:      input[0],//proto.String(input[0]),
-                        SndrAddress: input[1],//proto.String(input[1]),
-                        MsgType:      "Error, no valid message",//proto.String("Error, no valid message"),
-                }
-                return msg
-        }
-
-	
 }
 func buildMsg(input []string) *pb.KMessage {
 	if input[2] == "ping" || input[2] == "pong" {

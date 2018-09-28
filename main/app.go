@@ -37,11 +37,11 @@ func main() {
 
 	//testing store
 	kademlia := &d7024e.Kademlia{}
-	val := []byte("testvalue asdasd tjenatjena")
-	val2 := []byte("testvalue2 asdasd tjenatjena")
+	val := []byte("testvalueasdasdtjenatjena")
+	val2 := []byte("testvalue2asdasdtjenatjena")
 	kademlia.Store(val)
 	kademlia.Store(val2)
-	//hash := d7024e.Hash(val)
+	hash := d7024e.Hash(val)
 	hash2 := d7024e.Hash(val2)
 	kademlia.Pin(hash2)
 	go kademlia.Purge()
@@ -54,6 +54,7 @@ func main() {
 	net := d7024e.NewNetwork(&me, rt, kademlia)
 	go net.Listen(me, 8000)
 	tarip := "172.17.0.2:8000"
+	//tarip := "10.0.0.2:8000"
 	if ip == tarip {
 		//fmt.Println("not pinging myself")
 		reader := bufio.NewReader(os.Stdin)
@@ -72,9 +73,9 @@ func main() {
 		   case "files":
 		   	   fmt.Println("showing all file values")
 		   	   for i, file := range kademlia.GetFiles() {
-				   str := strconv.Itoa(i) + ": " + string(file.Value[:])
+				   str := strconv.Itoa(i) + ": " + string(file.Value[:]) + " *TIME_SINCE_REPUBLISH: " + strconv.Itoa(file.TimeSinceRepublish) + "s*"
 				   if file.Pin {
-					   str = str + " *PINNED* "
+					   str = str + "   *PINNED* "
 				   }
 				   fmt.Println(str)
 
@@ -89,11 +90,8 @@ func main() {
 	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	for {
 		time.Sleep(1000 * time.Millisecond)
-		net.SendFindContactMessage(&tar)
-		for {
-			time.Sleep(1000 * time.Millisecond)
-		}
-		//net.SendFindDataMessage(hash, &tar)
+		//net.SendFindContactMessage(&tar)
+		net.SendFindDataMessage(hash, &tar)
 		//fmt.Println("sent ping msg, sleeping...")
 	}
 	}
