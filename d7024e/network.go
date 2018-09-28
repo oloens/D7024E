@@ -142,6 +142,7 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		fmt.Println("ping received from " + message.GetSndrAddress() + " , sending pong back")
 	case "pong":
 		fmt.Println("pong (ping acknowledge) received from " + message.GetSndrAddress())
+		network.addPingResponse(me)
 
 	case "find_node":
 		targetKey := message.GetSndrID()
