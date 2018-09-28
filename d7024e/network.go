@@ -1,6 +1,7 @@
 package d7024e
 
 import (
+	"container/list"
 	fmt "fmt"
 	"net"
 	"sync"
@@ -12,10 +13,11 @@ import (
 )
 
 type Network struct {
-	rt     *RoutingTable
-	me     *Contact
-	mtx    *sync.Mutex
-	target *KademliaID
+	rt           *RoutingTable
+	me           *Contact
+	mtx          *sync.Mutex
+	target       *KademliaID
+	pingResponse *list.List
 }
 
 func NewNetwork(me *Contact, rt *RoutingTable) Network {
@@ -50,9 +52,58 @@ func (network *Network) Listen(me Contact, port int) {
 	}
 }
 
-func (network *Network) SendPingMessage(contact *Contact) {
+func (network *Network) SendPingMessage(contact *Contact) bool {
 	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "ping"})
 	sendMsg(contact.Address, message)
+
+	time.Sleep(1 * time.Second)
+	network.mtx.Lock()
+	if network.inPingResponses(contact) {
+		network.removePingResponse(contact)
+		network.mtx.Unlock()
+		return true
+	}
+	network.mtx.Unlock()
+	return false
+
+}
+
+func (network *Network) inPingResponses(contact *Contact) bool {
+	for e := network.pingResponse.Front(); e != nil; e = e.Next() {
+		nodeID := e.Value.(Contact).ID
+
+		if (contact).ID.Equals(nodeID) {
+			return true
+		}
+	}
+	return false
+}
+func (network *Network) addPingResponse(contact *Contact) {
+	//bucket.mtx.Lock()
+	//defer bucket.mtx.Unlock()
+	var element *list.Element
+	for e := network.pingResponse.Front(); e != nil; e = e.Next() {
+		nodeID := e.Value.(Contact).ID
+
+		if (contact).ID.Equals(nodeID) {
+			element = e
+		}
+	}
+
+	if element == nil {
+		network.pingResponse.PushBack(element)
+	}
+}
+
+func (network *Network) removePingResponse(contact *Contact) {
+	for e := network.pingResponse.Front(); e != nil; e = e.Next() {
+		nodeID := e.Value.(Contact).ID
+
+		if (contact).ID.Equals(nodeID) {
+			network.pingResponse.Remove(e)
+			break
+		}
+	}
 }
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
@@ -91,6 +142,7 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		fmt.Println("ping received from " + message.GetSndrAddress() + " , sending pong back")
 	case "pong":
 		fmt.Println("pong (ping acknowledge) received from " + message.GetSndrAddress())
+
 	case "find_node":
 		targetKey := message.GetSndrID()
 		target := NewKademliaID(targetKey)
@@ -107,7 +159,6 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 
 	default:
 		fmt.Println("Error in handleMsg switch")
-
 	}
 	if message.GetContacts() != nil {
 		fmt.Println(message.GetContacts)
@@ -200,6 +251,42 @@ func buildMsg(input []string) *pb.KMessage {
 			MsgType:     "Error, no valid message", //proto.String("Error, no valid message"),
 		}
 		return msg
+	}
+}
+
+func (network *Network) UpdateRT(contact Contact) {
+	bucket := network.rt.buckets[network.rt.getBucketIndex(contact.ID)]
+	var element *list.Element
+	bucket.mtx.Lock()
+	for e := bucket.list.Front(); e != nil; e = e.Next() {
+		nodeID := e.Value.(Contact).ID
+
+		if (contact).ID.Equals(nodeID) {
+			element = e
+		}
+	}
+	bucket.mtx.Unlock()
+
+	//Node not in bucket
+	if element == nil {
+		bucket.mtx.Lock()
+		if bucket.list.Len() < bucketSize {
+			bucket.list.PushFront(contact)
+			bucket.mtx.Unlock()
+		} else {
+			lastContact := bucket.list.Back().Value.(Contact)
+			bucket.mtx.Unlock()
+			ping := network.SendPingMessage(&lastContact)
+			if !ping {
+				bucket.RemoveContact(lastContact)
+				bucket.AddContact(contact)
+			}
+		}
+
+	} else { //Node is in bucket
+		bucket.mtx.Lock()
+		bucket.list.MoveToFront(element)
+		bucket.mtx.Unlock()
 	}
 }
 
