@@ -67,8 +67,19 @@ func main() {
 			   value := []byte(split[1])
 			   kademlia.Store(value)
 			   if split[len(split)-1] == "--pin" {
-				kademlia.Pin(d7024e.Hash(value))
+				kademlia.Pin(d7024e.Hash(value)) 
 			}
+		   case "files":
+		   	   fmt.Println("showing all file values")
+		   	   for i, file := range kademlia.GetFiles() {
+				   str := strconv.Itoa(i) + ": " + string(file.Value[:])
+				   if file.Pin {
+					   str = str + " *PINNED* "
+				   }
+				   fmt.Println(str)
+
+
+			   }
 		   default:
 			   fmt.Println("invalid command or not yet implemented")
 		   }

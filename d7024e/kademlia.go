@@ -16,6 +16,9 @@ type File struct {
 	Value	[]byte
 	Pin	bool
 }
+func (kademlia Kademlia) GetFiles() []File {
+	return kademlia.files
+}
 func (kademlia *Kademlia) AddFile(file File) {
 	kademlia.files = append(kademlia.files, file)
 }
