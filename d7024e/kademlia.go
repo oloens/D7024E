@@ -3,25 +3,26 @@ package d7024e
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"time"
 	"fmt"
+	"time"
 	//"strconv"
 )
 
 type Kademlia struct {
-	files []File
-	Me	Contact
+	files   []File
+	Me      Contact
 	Network *Network
-	Rt 	*RoutingTable
-	Alpha 	int
-	K	int
+	Rt      *RoutingTable
+	Alpha   int
+	K       int
 }
 type File struct {
-	Hash	string
-	Value	[]byte
-	Pin	bool
+	Hash               string
+	Value              []byte
+	Pin                bool
 	TimeSinceRepublish int
 }
+
 func (kademlia Kademlia) GetFiles() []File {
 	return kademlia.files
 }
@@ -47,7 +48,7 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 	for {
 		queryCandidates := shortList.GetContacts(shortList.Len())
 		current := 0
-		for i := 0; current < alpha && i <shortList.Len(); i++ {
+		for i := 0; current < alpha && i < shortList.Len(); i++ {
 			if queriedNodes[queryCandidates[i].ID.String()] {
 				continue
 			}
@@ -57,7 +58,7 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 			switch iterateType {
 			case "FIND_CONTACT":
 				go kademlia.LookupMessage("FIND_CONTACT", target, &queryCandidates[i], ch)
-			case "FIND_VALUE": 
+			case "FIND_VALUE":
 				go kademlia.LookupMessage("FIND_VALUE", target, &queryCandidates[i], ch)
 
 			}
@@ -72,7 +73,7 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 		for current > 0 {
 			//i := current - 1
 			//rpcType, data := <- channels[i-1], <- channels[i-1]
-			rpcType, data := <- channels[0], <- channels[0]
+			rpcType, data := <-channels[0], <-channels[0]
 			switch rpcType[0] {
 			case "FIND_CONTACT":
 				for _, cont := range data {
@@ -96,20 +97,20 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 					return nil, nil, []byte(data[0])
 				}
 				for _, cont := range data {
-                                        if cont != kademlia.Me.ID.String() {
-                                                cont_restored := RestoreContact(cont)
-                                                cont_restored.CalcDistance(target)
-						if !shortList.Exists(&cont_restored) { 
-							shortList.Append([]Contact{cont_restored}) 
+					if cont != kademlia.Me.ID.String() {
+						cont_restored := RestoreContact(cont)
+						cont_restored.CalcDistance(target)
+						if !shortList.Exists(&cont_restored) {
+							shortList.Append([]Contact{cont_restored})
 						}
-                                                if initialized {
-                                                        if cont_restored.Less(closest) {
-                                                                closest = &cont_restored
-                                                        }
-                                                } else {
-                                                        closest = &cont_restored
-                                                }
-                                        }
+						if initialized {
+							if cont_restored.Less(closest) {
+								closest = &cont_restored
+							}
+						} else {
+							closest = &cont_restored
+						}
+					}
 
 				}
 			}
@@ -119,23 +120,19 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 			current--
 			probed++
 
-	}
-	if probed >= kademlia.K {
-		shortList.Sort() // TODO sort by distance
-		fmt.Println("Total nodes probed for this lookup: ", probed)
-		return shortList.GetContacts(kademlia.K), closest, nil
+		}
+		if probed >= kademlia.K {
+			shortList.Sort() // TODO sort by distance
+			fmt.Println("Total nodes probed for this lookup: ", probed)
+			return shortList.GetContacts(kademlia.K), closest, nil
 
+		}
+		if closestThisRound == closest {
+			fmt.Println("Total nodes probed for this lookup: ", probed)
+			shortList.Sort()
+			return shortList.GetContacts(shortList.Len()), closest, nil
+		}
 	}
-	if closestThisRound == closest {
-		fmt.Println("Total nodes probed for this lookup: ", probed)
-		shortList.Sort()
-		return shortList.GetContacts(shortList.Len()), closest, nil
-	}
-
-
-    }
-    fmt.Println("lookup seems to have failed to find a single contact")
-    return nil, nil, nil
 }
 
 func (kademlia *Kademlia) LookupMessage(rpctype string, target *KademliaID, contact *Contact, ch chan []string) {
@@ -172,15 +169,15 @@ func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []strin
 
 }
 func (kademlia *Kademlia) FindValue(value *KademliaID, contact *Contact) ([]string, []byte) {
-        id := NewRandomKademliaID()
-        msgchan := NewMessageChannel(id)
-        kademlia.Network.Mgr.AddMessageChannel(msgchan)
-        kademlia.Network.SendFindDataMessage(value.String(), contact, id)
-        response := <-msgchan.Channel
+	id := NewRandomKademliaID()
+	msgchan := NewMessageChannel(id)
+	kademlia.Network.Mgr.AddMessageChannel(msgchan)
+	kademlia.Network.SendFindDataMessage(value.String(), contact, id)
+	response := <-msgchan.Channel
 	if response.GetData() != nil {
 		return nil, response.GetData()
 	}
-        return response.GetContacts(), nil
+	return response.GetContacts(), nil
 }
 func (kademlia *Kademlia) SendStore(hash string, value []byte) {
 	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", NewKademliaID(hash))
@@ -203,11 +200,11 @@ func (kademlia *Kademlia) Bootstrap() {
 	}
 	//fmt.Println("Bootstrap complete! 20 closest to me:")
 	//for _, contact := range kademlia.Rt.FindClosestContacts(NewRandomKademliaID(), 20) {
-//		fmt.Println(contact.ID.String())
-//	}
+	//		fmt.Println(contact.ID.String())
+	//	}
 
 }
-func (kademlia *Kademlia) SendFindValue(hash string) (*Contact, []byte){
+func (kademlia *Kademlia) SendFindValue(hash string) (*Contact, []byte) {
 	kclosest, closest, val := kademlia.IterativeLookup("FIND_VALUE", NewKademliaID(hash))
 	if val != nil {
 		return nil, val
@@ -222,8 +219,6 @@ func (kademlia *Kademlia) LookupContact(target *Contact) {
 	// TODO
 }
 
-
-
 func (kademlia *Kademlia) LookupData(hash string) []byte {
 	file := kademlia.LookupFile(hash)
 	if file != nil {
@@ -233,16 +228,16 @@ func (kademlia *Kademlia) LookupData(hash string) []byte {
 }
 func (kademlia *Kademlia) LookupFile(hash string) *File {
 	for _, file := range kademlia.files {
-                if hash == file.Hash {
-                        return &file
-                }
-        }
-        return nil
+		if hash == file.Hash {
+			return &file
+		}
+	}
+	return nil
 }
 
 func Hash(data []byte) string {
-        hashbytes := sha1.Sum(data)
-        hash := hex.EncodeToString(hashbytes[0:IDLength])
+	hashbytes := sha1.Sum(data)
+	hash := hex.EncodeToString(hashbytes[0:IDLength])
 	return hash
 }
 func (kademlia *Kademlia) Store(data []byte) {
@@ -276,11 +271,11 @@ func (kademlia *Kademlia) Pin(hash string) {
 	//file.Pin = true
 	i := kademlia.index(hash)
 	if i == -1 {
-		fmt.Println("error in pin, file not found")
+		fmt.Println("Pin Error: File not found")
 		return
 	}
 	kademlia.files[i].Pin = true
-	fmt.Println("successfully pinned file with hash " + hash)
+	//fmt.Println("Successfully pinned file with hash " + hash)
 
 }
 func (kademlia *Kademlia) Unpin(hash string) {
@@ -290,12 +285,12 @@ func (kademlia *Kademlia) Unpin(hash string) {
 	//}
 	//file.Pin = false
 	i := kademlia.index(hash)
-        if i == -1 {
-                fmt.Println("error in unpin, file not found")
-                return
-        }
+	if i == -1 {
+		fmt.Println("Unpin Error: File not found")
+		return
+	}
 	kademlia.files[i].Pin = false
-	fmt.Println("successfully unpinned file with hash " + hash)
+	//fmt.Println("successfully unpinned file with hash " + hash)
 }
 
 func (kademlia *Kademlia) Purge() {
@@ -306,13 +301,12 @@ func (kademlia *Kademlia) Purge() {
 	}
 	var newfiles []File
 	for _, file := range kademlia.files {
-		if file.Pin == true || file.TimeSinceRepublish <= 30 {
+		if file.Pin == true || file.TimeSinceRepublish <= 4 {
 			newfiles = append(newfiles, file)
 		} else {
-			fmt.Println("timer expired for file with hash: " + file.Hash + " , removing..")
+			//fmt.Println("timer expired for file with hash: " + file.Hash + " , removing..")
 		}
 	}
 	kademlia.files = newfiles
 	kademlia.Purge()
 }
-

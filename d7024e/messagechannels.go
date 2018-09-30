@@ -1,11 +1,13 @@
 package d7024e
+
 import (
-	pb "protobuf"
 	"sync"
-	)
+
+	pb "../protobuf"
+)
 
 type MessageChannel struct {
-	ID 	*KademliaID
+	ID      *KademliaID
 	Channel chan *pb.KMessage
 }
 
@@ -14,7 +16,7 @@ func NewMessageChannel(id *KademliaID) *MessageChannel {
 }
 
 type MessageChannelManager struct {
-	mtx 	*sync.Mutex
+	mtx             *sync.Mutex
 	MessageChannels []*MessageChannel
 }
 
@@ -57,4 +59,3 @@ func (mgr *MessageChannelManager) RemoveMessageChannel(id *KademliaID) {
 	mgr.MessageChannels[index] = mgr.MessageChannels[len(mgr.MessageChannels)-1]
 	mgr.MessageChannels = mgr.MessageChannels[:len(mgr.MessageChannels)-1]
 }
-

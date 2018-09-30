@@ -1,45 +1,45 @@
 package main
-import (
-	"time"
-	"fmt"
-	"d7024e"
-	"net"
-	pb "protobuf"
-	proto "proto"
-	"strconv"
-	"bufio"
-	"os"
-	"strings"
-)
 
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"../d7024e"
+
+	proto "../proto"
+	pb "../protobuf"
+)
 
 //just testing deployment of go in a docker container, and subsequently
 // deploying a cluster using docker swarm
 func main() {
-	
-
 
 	rawip := getIP()
-	ip := rawip+":8000"
+	ip := rawip + ":8000"
 	split_ip := strings.Split(rawip, ".")
 	seed, _ := strconv.Atoi(split_ip[3])
 	//fmt.Println(split_ip[3])
 	//seed := rawip[len(rawip)-1:]
 	id := d7024e.NewRandomKademliaID()
 	//seed_int, _ := strconv.Atoi(seed)
-        //tarip := "172.17.0.2:8000"
+	//tarip := "172.17.0.2:8000"
 	tarip := "10.0.0.4:8000"
 	var me d7024e.Contact
 	fmt.Println(d7024e.NewRandomKademliaID().String())
 	if tarip == ip {
-                me = d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
-        } else {
+		me = d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
+	} else {
 		for i := 0; i < seed; i++ {
-	    		id = d7024e.NewRandomKademliaID()
+			id = d7024e.NewRandomKademliaID()
 		}
 		me = d7024e.NewContact(id, ip)
 	}
-//	strContact := me.String()
+	//	strContact := me.String()
 	fmt.Println("my id is :" + me.ID.String())
 
 	rt := d7024e.NewRoutingTable(me)
@@ -60,7 +60,6 @@ func main() {
 	//fmt.Println(string(hash[:]))
 	//fmt.Println(me.ID.String())
 
-	
 	net := d7024e.NewNetwork(&me, rt, kademlia, d7024e.NewMessageChannelManager())
 	kademlia.Network = &net
 	kademlia.Rt = rt
@@ -74,92 +73,99 @@ func main() {
 	if ip != tarip {
 		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
-		time.Sleep(time.Duration(seed * 1000)  * time.Millisecond)
+		time.Sleep(time.Duration(seed*1000) * time.Millisecond)
 		kademlia.Bootstrap()
 		//net.SendFindContactMessage(&tar)
 		//net.SendFindDataMessage(hash, &tar)
 		//fmt.Println("sent ping msg, sleeping...")
-	
+
 	}
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		   command, _ := reader.ReadString('\n')
-		   command = strings.Replace(command, "\n", "", -1)
-		   split := strings.Split(command, " ")
-		   switch split[0] {
-		   case "info": 
-		   	   fmt.Println("Node with ID: ", kademlia.Me.ID.String())
-			   fmt.Println("My 20 closest contacts are: ")
-			   for _, ct := range kademlia.Rt.FindClosestContacts(kademlia.Me.ID, 20) {
-				   fmt.Println(ct.ID.String())
-			   }
-		   case "store":
-			   fmt.Println("executing store command on string: " + split[1])
-			   value := []byte(split[1])
-			   hash := d7024e.Hash(value)
-			   //val_string := string(value[:])
-			   //key := d7024e.NewKademliaID(hash)
+		command, _ := reader.ReadString('\n')
+		command = strings.Replace(command, "\n", "", -1)
+		split := strings.Split(command, " ")
+		switch split[0] {
+		case "info":
+			fmt.Println("Node with ID: ", kademlia.Me.ID.String())
+			fmt.Println("My 20 closest contacts are: ")
+			for _, ct := range kademlia.Rt.FindClosestContacts(kademlia.Me.ID, 20) {
+				fmt.Println(ct.ID.String())
+			}
+		case "store":
+			fmt.Println("executing store command on string: " + split[1])
+			value := []byte(split[1])
+			hash := d7024e.Hash(value)
+			//val_string := string(value[:])
+			//key := d7024e.NewKademliaID(hash)
 
-			   kademlia.SendStore(hash, value)
-			   //kademlia.Store(value)
-			   //if split[len(split)-1] == "--pin" {
+			kademlia.SendStore(hash, value)
+			//kademlia.Store(value)
+			//if split[len(split)-1] == "--pin" {
 			//	kademlia.Pin(d7024e.Hash(value))
 			//}
-		   case "files":
-		   	   fmt.Println("showing all file values")
-		   	   for i, file := range kademlia.GetFiles() {
-				   str := strconv.Itoa(i) + ": " + string(file.Value[:]) + " *TIME_SINCE_REPUBLISH: " + strconv.Itoa(file.TimeSinceRepublish) + "s*"
-				   if file.Pin {
-					   str = str + "   *PINNED* "
-				   }
-				   fmt.Println(str)
+		case "files":
+			fmt.Println("showing all file values")
+			for i, file := range kademlia.GetFiles() {
+				str := strconv.Itoa(i) + ": " + string(file.Value[:]) + " *TIME_SINCE_REPUBLISH: " + strconv.Itoa(file.TimeSinceRepublish) + "s*"
+				if file.Pin {
+					str = str + "   *PINNED* "
+				}
+				fmt.Println(str)
 
+			}
+		case "pin":
+			fmt.Println("pinning file with hash:" + split[1])
+			hash := split[1]
+			kademlia.Pin(hash)
+		case "unpin":
+			fmt.Println("unpinning file with hash:" + split[1])
+			hash := split[1]
+			kademlia.Unpin(hash)
+		default:
+			fmt.Println("invalid command or not yet implemented")
+		}
 
-			   }
-		   default:
-			   fmt.Println("invalid command or not yet implemented")
-		   }
+	}
 
-}
-	
 }
 func getIP() string {
 	/*
-	for {
-	fmt.Println("begin ip stuff")
-	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		fmt.Println(i)
-		addrs, _ := i.Addrs()
-		fmt.Println(addrs)
-		for _, addr := range addrs {
-			fmt.Println(addr)
+			for {
+			fmt.Println("begin ip stuff")
+			ifaces, _ := net.Interfaces()
+			for _, i := range ifaces {
+				fmt.Println(i)
+				addrs, _ := i.Addrs()
+				fmt.Println(addrs)
+				for _, addr := range addrs {
+					fmt.Println(addr)
+				}
+			}
+			fmt.Println("end ip stuff")
 		}
-	}
-	fmt.Println("end ip stuff")
-}
 
-*/
+	*/
 
 	iface, _ := net.InterfaceByName("eth0")
-        addrs, _ := iface.Addrs()
-        for _, addr := range addrs {
-                var ip net.IP
-                switch v := addr.(type) {
-                        case *net.IPNet:
-                                ip = v.IP
-                        case *net.IPAddr:
-                                ip = v.IP
-                        }
-                return ip.String()
-        }
+	addrs, _ := iface.Addrs()
+	for _, addr := range addrs {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		return ip.String()
+	}
 	return "error"
-    }
+}
 func buildMessage() *pb.KMessage {
 	t1 := "testaddress"
 	msg := &pb.KMessage{
-		SndrAddress: t1,//proto.String(t1),
+		SndrAddress: t1, //proto.String(t1),
 	}
 	return msg
 }
@@ -175,9 +181,8 @@ func tempListen(c chan *pb.KMessage) {
 	fmt.Println("listening")
 	for {
 		//time.Sleep(500 * time.Millisecond)
-		 receiveUDP(udpconn, c)
+		receiveUDP(udpconn, c)
 	}
-
 
 }
 func receiveUDP(conn net.Conn, c chan *pb.KMessage) {

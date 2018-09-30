@@ -12,7 +12,7 @@ It has these top-level messages:
 */
 package protobuf
 
-import proto "proto"
+import proto "../proto"
 import fmt "fmt"
 import math "math"
 
