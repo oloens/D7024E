@@ -66,7 +66,7 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 		}
 		if current == 0 {
 			shortList.Sort()
-			fmt.Println("Total nodes probed for this lookup: ", probed)
+			fmt.Println("Total nodes probed for this lookup: ", probed, "escaped because current==0")
 			return shortList.GetContacts(shortList.Len()), closest, nil
 		}
 		for current > 0 {
@@ -122,11 +122,72 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 	}
 	if probed >= kademlia.K {
 		shortList.Sort() // TODO sort by distance
-		fmt.Println("Total nodes probed for this lookup: ", probed)
+		fmt.Println("Total nodes probed for this lookup: ", probed, "escaped because already probed 20")
 		return shortList.GetContacts(kademlia.K), closest, nil
 
 	}
 	if closestThisRound == closest {
+		fmt.Println("Did not find any closer this round, sending out to k closest unqueried nodes")
+		cts := kademlia.Rt.FindClosestContacts(target, kademlia.K)
+		for i := 0; i<len(cts); i++ {
+			if queriedNodes[cts[i].ID.String()] {
+				continue
+			}
+			queriedNodes[cts[i].ID.String()] = true
+			ch := make(chan []string)
+			channels = append(channels, ch)
+			switch iterateType {
+			case "FIND_CONTACT":
+				go kademlia.LookupMessage("FIND_CONTACT", target, &cts[i], ch)
+			case "FIND_VALUE": 
+				go kademlia.LookupMessage("FIND_VALUE", target, &cts[i], ch)
+			}
+			fmt.Println("Started query for " + cts[i].ID.String())
+			probed++
+		}
+		for _, ch := range channels {
+			rpcType, data := <- ch, <- ch
+			switch rpcType[0] {
+			case "FIND_CONTACT":
+				for _, cont := range data {
+                                        if cont != kademlia.Me.ID.String() {
+                                                cont_restored := RestoreContact(cont)
+                                                cont_restored.CalcDistance(target)
+                                                if !shortList.Exists(&cont_restored) {
+                                                        shortList.Append([]Contact{cont_restored})
+                                                }
+                                        }
+
+				}
+			case "FIND_VALUE": 
+				if rpcType[1] == "DATA" {
+					return nil, nil, []byte(data[0])
+				}
+				for _, cont := range data {
+                                        if cont != kademlia.Me.ID.String() {
+                                                cont_restored := RestoreContact(cont)
+                                                cont_restored.CalcDistance(target)
+						if !shortList.Exists(&cont_restored) { 
+							shortList.Append([]Contact{cont_restored}) 
+						}
+                                                if initialized {
+                                                        if cont_restored.Less(closest) {
+                                                                closest = &cont_restored
+                                                        }
+                                                } else {
+                                                        closest = &cont_restored
+                                                }
+                                        }
+
+				}
+			}
+		close(ch)
+	}
+
+
+
+		
+
 		fmt.Println("Total nodes probed for this lookup: ", probed)
 		shortList.Sort()
 		return shortList.GetContacts(shortList.Len()), closest, nil
