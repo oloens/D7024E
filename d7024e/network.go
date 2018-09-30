@@ -16,16 +16,17 @@ type Network struct {
 	mtx    *sync.Mutex
 	target *KademliaID
 	kademlia *Kademlia
+	Mgr *MessageChannelManager
 }
 
-func NewNetwork(me *Contact, rt *RoutingTable, kademlia *Kademlia) Network {
+func NewNetwork(me *Contact, rt *RoutingTable, kademlia *Kademlia, mgr *MessageChannelManager) Network {
 	network := Network{}
 	network.me = me
 	network.rt = rt
 	network.mtx = &sync.Mutex{}
 	network.kademlia = kademlia
+	network.Mgr = mgr
 	return network
-
 }
 
 func (network *Network) Listen(me Contact, port int) {
@@ -55,13 +56,13 @@ func (network *Network) SendPingMessage(contact *Contact) {
 	sendMsg(contact.Address, message)
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact) {
-	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_node", network.me.ID.String(), contact.ID.String()})
+func (network *Network) SendFindContactMessage(id *KademliaID, contact *Contact, rpc_id *KademliaID) {
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_node", contact.ID.String(), id.String(), rpc_id.String()})
 	sendMsg(contact.Address, message)
 }
 
-func (network *Network) SendFindDataMessage(hash string, contact *Contact) {
-	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_val", hash})
+func (network *Network) SendFindDataMessage(hash string, contact *Contact, rpc_id *KademliaID) {
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "find_val", hash, rpc_id.String()})
 	sendMsg(contact.Address, message)
 }
 
@@ -69,7 +70,6 @@ func (network *Network) SendStoreMessage(value string, key *KademliaID, contact 
 	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "store", key.String(), value})
 	sendMsg(contact.Address, message)
 }
-
 //Message-delarna kan kanske flyttas till egen fil?
 func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	data := <-channel
@@ -85,7 +85,9 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		sendMsg(message.GetSndrAddress(), response)
 		fmt.Println("ping received from " + message.GetSndrAddress() + " , sending pong back")
 	case "pong":
-		fmt.Println("pong (ping acknowledge) received from " + message.GetSndrAddress())
+		//msgchan := network.Mgr.GetMessageChannel(NewKademliaID(message.GetRpcID()))
+                //msgchan.Channel <- message
+		fmt.Println("pong received, todo")
 	case "find_node":
 		targetKey :=  message.GetKey()
 		target := NewKademliaID(targetKey)
@@ -103,19 +105,16 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		for _, ct := range contacts {
 			contacts_string = append(contacts_string, ct.String())
 		}
-		response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_node_response"}, contacts_string)
+		response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_node_response", message.GetRpcID()}, contacts_string)
 		sendMsg(message.GetSndrAddress(), response)
 	case "find_node_response":
-		contacts := message.GetContacts()
-		fmt.Println("contacts returned from request: ")
-		for _, ct := range contacts {
-			fmt.Println(ct)
-		}
+		msgchan := network.Mgr.GetMessageChannel(NewKademliaID(message.GetRpcID()))
+		msgchan.Channel <- message
 	case "find_val":
 		targetKey :=  message.GetKey()
 		result := network.kademlia.LookupData(targetKey)
 		if result != nil {
-			response := buildMsg([]string{me.ID.String(), me.Address, "find_val_response", string(result[:])})
+			response := buildMsg([]string{me.ID.String(), me.Address, "find_val_response", string(result[:]), message.GetRpcID()})
                     sendMsg(message.GetSndrAddress(), response)
 
 		} else {
@@ -134,23 +133,14 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
                 	for _, ct := range contacts {
                         	contacts_string = append(contacts_string, ct.String())
                 	}
-                	response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_val_response"}, contacts_string)
+                	response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_val_response", message.GetRpcID()}, contacts_string)
                 	sendMsg(message.GetSndrAddress(), response)
 
 		}
 
 	case "find_val_response":
-		data := message.GetData()
-		if data != nil {
-			fmt.Println("find_value successful!")
-			fmt.Println(string(data[:]))
-			fmt.Println("above is value")
-		} else {
-			fmt.Println("did not find value initially, but got contacts: ")
-			for _, ct := range message.GetContacts() {
-				fmt.Println(ct)
-			}
-		}
+		msgchan := network.Mgr.GetMessageChannel(NewKademliaID(message.GetRpcID()))
+                msgchan.Channel <- message
 	case "store":
 		data := message.GetData()
 		key := message.GetKey()
@@ -162,6 +152,8 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 
 	}
 }
+
+
 func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
                 msg := &pb.KMessage{
                         SndrID:         input[0], 
@@ -188,6 +180,7 @@ func buildMsg(input []string) *pb.KMessage {
 			MsgType:     input[2],//proto.String(input[2]),
 			RcvrID:      input[3],//proto.String(input[3]),
 			Key:	     input[4],
+			RpcID:	     input[5], 
 		}
 		return msg
 	}
@@ -198,6 +191,7 @@ func buildMsg(input []string) *pb.KMessage {
 			SndrAddress: input[1],//proto.String(input[1]),
 			MsgType:     input[2],//proto.String(input[2]),
 			Key:         input[3],//proto.String(input[3]),
+			RpcID: 	     input[4],
 		}
 		return msg
 	}
@@ -208,6 +202,7 @@ func buildMsg(input []string) *pb.KMessage {
 			SndrAddress: input[1],//proto.String(input[1]),
 			MsgType:     input[2],//proto.String(input[2]),
 			Data:        []byte(input[3]),
+			RpcID: 	     input[4],
 		}
 		return msg
 	}

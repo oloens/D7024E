@@ -24,11 +24,17 @@ func main() {
 	seed := rawip[len(rawip)-1:]
 	id := d7024e.NewRandomKademliaID()
 	seed_int, _ := strconv.Atoi(seed)
-	for i := 0; i < seed_int; i++ {
-	    id = d7024e.NewRandomKademliaID()
+        tarip := "172.17.0.2:8000"
+	var me d7024e.Contact
+	fmt.Println(d7024e.NewRandomKademliaID().String())
+	if tarip == ip {
+                me = d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
+        } else {
+		for i := 0; i < seed_int; i++ {
+	    		id = d7024e.NewRandomKademliaID()
+		}
+		me = d7024e.NewContact(id, ip)
 	}
-	
-	me := d7024e.NewContact(id, ip)
 //	strContact := me.String()
 
 
@@ -51,15 +57,22 @@ func main() {
 	//fmt.Println(me.ID.String())
 
 	
-	net := d7024e.NewNetwork(&me, rt, kademlia)
+	net := d7024e.NewNetwork(&me, rt, kademlia, d7024e.NewMessageChannelManager())
+	kademlia.Network = &net
+	kademlia.Rt = rt
+	kademlia.K = 20
+	kademlia.Alpha = 3
+	kademlia.Me = me
+	//kademlia.Rt.Add(d7024e.NewContact(d7024e.NewKademliaID("0fda68927f2b2ff836f73578db0fa54c29f7fd92"), tarip)
 	go net.Listen(me, 8000)
-	tarip := "172.17.0.2:8000"
 	//tarip := "10.0.0.2:8000"
-	tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
+	//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	if ip != tarip {
 		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
+		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("0fda68927f2b2ff836f73578db0fa54c29f7fd92"), tarip))
 		time.Sleep(1000 * time.Millisecond)
-		net.SendFindContactMessage(&tar)
+		kademlia.Bootstrap()
+		//net.SendFindContactMessage(&tar)
 		//net.SendFindDataMessage(hash, &tar)
 		//fmt.Println("sent ping msg, sleeping...")
 	
@@ -75,10 +88,10 @@ func main() {
 			   fmt.Println("executing store command on string: " + split[1])
 			   value := []byte(split[1])
 			   hash := d7024e.Hash(value)
-			   val_string := string(value[:])
-			   key := d7024e.NewKademliaID(hash)
+			   //val_string := string(value[:])
+			   //key := d7024e.NewKademliaID(hash)
 
-			   net.SendStoreMessage(val_string, key, &tar)
+			   kademlia.SendStore(hash, value)
 			   //kademlia.Store(value)
 			   //if split[len(split)-1] == "--pin" {
 			//	kademlia.Pin(d7024e.Hash(value))

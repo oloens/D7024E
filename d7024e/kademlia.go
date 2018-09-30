@@ -10,6 +10,11 @@ import (
 
 type Kademlia struct {
 	files []File
+	Me	Contact
+	Network *Network
+	Rt 	*RoutingTable
+	Alpha 	int
+	K	int
 }
 type File struct {
 	Hash	string
@@ -23,10 +28,187 @@ func (kademlia Kademlia) GetFiles() []File {
 func (kademlia *Kademlia) AddFile(file File) {
 	kademlia.files = append(kademlia.files, file)
 }
+func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID) (contactList []Contact, closestNode *Contact, value []byte) {
+	shortList := &ContactCandidates{}
+	shortList.Append(kademlia.Rt.FindClosestContacts(target, kademlia.Alpha))
 
+	//removeFromShortlist := &ContactCandidates{}
+	var channels []chan []string
+	queriedNodes := make(map[Contact]bool)
+	alpha := kademlia.Alpha
+	var closest *Contact
+	var initialized bool
+	if shortList.Len() != 0 {
+		closest = &shortList.GetContacts(1)[0]
+		initialized = true
+	}
+	probed := 0
+	closestThisRound := closest
+	for {
+		queryCandidates := shortList.GetContacts(shortList.Len())
+		current := 0
+		for i := 0; current < alpha && i <shortList.Len(); i++ {
+			if queriedNodes[queryCandidates[i]] {continue}
+			queriedNodes[queryCandidates[i]] = true
+			ch := make(chan []string)
+			channels = append(channels, ch)
+			switch iterateType {
+			case "FIND_CONTACT":
+				go kademlia.LookupMessage("FIND_CONTACT", target, &queryCandidates[i], ch)
+			case "FIND_VALUE": 
+				go kademlia.LookupMessage("FIND_VALUE", target, &queryCandidates[i], ch)
+
+			}
+			current++
+			fmt.Println("Started query for " + queryCandidates[i].ID.String())
+		}
+		if current == 0 {
+			break
+		}
+		for current > 0 {
+			//i := current - 1
+			//rpcType, data := <- channels[i-1], <- channels[i-1]
+			rpcType, data := <- channels[0], <- channels[0]
+			switch rpcType[0] {
+			case "FIND_CONTACT":
+				fmt.Println("Received FIND_CONTACT from channel")
+				for _, cont := range data{
+					fmt.Println("Contact received: ", cont)
+					if cont != kademlia.Me.ID.String() {
+						cont_restored := RestoreContact(cont)
+						cont_restored.CalcDistance(target)
+						shortList.contacts = append(shortList.contacts, cont_restored)
+						if initialized {
+							if cont_restored.Less(closest) {
+								closest = &cont_restored
+							}
+						} else {
+							closest = &cont_restored
+						}
+					}
+				}
+			case "FIND_VALUE":
+				if rpcType[1] == "DATA" {
+					return nil, nil, []byte(data[0])
+				}
+				fmt.Println("Received FIND_VALUE from channel")
+				for _, cont := range data {
+					fmt.Println("Contact received: ", cont)
+                                        if cont != kademlia.Me.ID.String() {
+                                                cont_restored := RestoreContact(cont)
+                                                cont_restored.CalcDistance(target)
+                                                shortList.contacts = append(shortList.contacts, cont_restored)
+                                                if initialized {
+                                                        if cont_restored.Less(closest) {
+                                                                closest = &cont_restored
+                                                        }
+                                                } else {
+                                                        closest = &cont_restored
+                                                }
+                                        }
+
+				}
+			}
+			close(channels[0])
+			//channels = append(channels[:i], channels[i+1]...)
+			channels = channels[1:]
+			current--
+			probed++
+
+	}
+	if probed >= kademlia.K {
+		shortList.Sort() // TODO sort by distance
+		return shortList.GetContacts(kademlia.K), closest, nil
+
+	}
+	if closestThisRound == closest {
+		return shortList.GetContacts(shortList.Len()), closest, nil
+	}
+
+
+    }
+    fmt.Println("lookup seems to have failed to find a single contact")
+    return nil, nil, nil
+}
+
+func (kademlia *Kademlia) LookupMessage(rpctype string, target *KademliaID, contact *Contact, ch chan []string) {
+	switch rpctype {
+	case "FIND_CONTACT":
+		result := kademlia.FindNode(target, contact)
+		ch <- []string{rpctype}
+		ch <- result
+		return
+	case "FIND_VALUE":
+		cts, data := kademlia.FindValue(target, contact)
+		if data != nil {
+			ch <- []string{rpctype, "DATA"}
+			ch <- []string{string(data[:])}
+			return
+		} else {
+			ch <- []string{rpctype, "CONTACTS"}
+			ch <- cts
+			return
+		}
+	}
+	fmt.Println("LookupMessage failed")
+	return
+}
+
+func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []string {
+	id := NewRandomKademliaID()
+	msgchan := NewMessageChannel(id)
+	kademlia.Network.Mgr.AddMessageChannel(msgchan)
+	kademlia.Network.SendFindContactMessage(target, contact, id)
+	response := <-msgchan.Channel
+	return response.GetContacts()
+
+}
+func (kademlia *Kademlia) FindValue(value *KademliaID, contact *Contact) ([]string, []byte) {
+        id := NewRandomKademliaID()
+        msgchan := NewMessageChannel(id)
+        kademlia.Network.Mgr.AddMessageChannel(msgchan)
+        kademlia.Network.SendFindDataMessage(value.String(), contact, id)
+        response := <-msgchan.Channel
+	if response.GetData() != nil {
+		return nil, response.GetData()
+	}
+        return response.GetContacts(), nil
+}
+func (kademlia *Kademlia) SendStore(hash string, value []byte) {
+	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", NewKademliaID(hash))
+	for _, contact := range kclosest {
+		kademlia.Network.SendStoreMessage(string(value[:]), NewKademliaID(hash), &contact)
+		kademlia.Rt.AddContact(contact) //when do we update routing table
+	}
+
+}
+
+func (kademlia *Kademlia) Ping(contact *Contact) {
+	//TODO
+}
+func (kademlia *Kademlia) Bootstrap() {
+	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", kademlia.Me.ID)
+	for _, contact := range kclosest {
+		kademlia.Rt.AddContact(contact)
+	}
+
+}
+func (kademlia *Kademlia) SendFindValue(hash string) (*Contact, []byte){
+	kclosest, closest, val := kademlia.IterativeLookup("FIND_VALUE", NewKademliaID(hash))
+	if val != nil {
+		return nil, val
+	}
+
+	for _, contact := range kclosest {
+		kademlia.Rt.AddContact(contact)
+	}
+	return closest, val
+}
 func (kademlia *Kademlia) LookupContact(target *Contact) {
 	// TODO
 }
+
+
 
 func (kademlia *Kademlia) LookupData(hash string) []byte {
 	file := kademlia.LookupFile(hash)
