@@ -22,11 +22,11 @@ func main() {
 	rawip := getIP()
 	ip := rawip+":8000"
 	split_ip := strings.Split(rawip, ".")
-	seed := strconv.Atoi(split_ip[3])
+	seed, _ := strconv.Atoi(split_ip[3])
 	//fmt.Println(split_ip[3])
 	//seed := rawip[len(rawip)-1:]
 	id := d7024e.NewRandomKademliaID()
-	seed_int, _ := strconv.Atoi(seed)
+	//seed_int, _ := strconv.Atoi(seed)
         //tarip := "172.17.0.2:8000"
 	tarip := "10.0.0.4:8000"
 	var me d7024e.Contact
@@ -34,7 +34,7 @@ func main() {
 	if tarip == ip {
                 me = d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
         } else {
-		for i := 0; i < seed_int; i++ {
+		for i := 0; i < seed; i++ {
 	    		id = d7024e.NewRandomKademliaID()
 		}
 		me = d7024e.NewContact(id, ip)
@@ -74,7 +74,7 @@ func main() {
 	if ip != tarip {
 		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
-		time.Sleep(30000 * time.Millisecond)
+		time.Sleep(time.Duration(seed * 1000)  * time.Millisecond)
 		kademlia.Bootstrap()
 		//net.SendFindContactMessage(&tar)
 		//net.SendFindDataMessage(hash, &tar)
