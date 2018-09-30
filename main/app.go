@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"os"
 	"strings"
+	"math/rand"
 )
 
 
@@ -25,7 +26,7 @@ func main() {
 	seed, _ := strconv.Atoi(split_ip[3])
 	//fmt.Println(split_ip[3])
 	//seed := rawip[len(rawip)-1:]
-	id := d7024e.NewRandomKademliaID()
+	//id := d7024e.NewRandomKademliaID()
 	//seed_int, _ := strconv.Atoi(seed)
         //tarip := "172.17.0.2:8000"
 	tarip := "10.0.0.4:8000"
@@ -35,8 +36,9 @@ func main() {
                 me = d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
         } else {
 		for i := 0; i < seed; i++ {
-	    		id = d7024e.NewRandomKademliaID()
+	    		rand.Seed(time.Now().UTC().UnixNano())
 		}
+		id := d7024e.NewRandomKademliaID()
 		me = d7024e.NewContact(id, ip)
 	}
 //	strContact := me.String()

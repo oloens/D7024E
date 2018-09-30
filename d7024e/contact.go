@@ -33,7 +33,18 @@ func (candidates *ContactCandidates) Exists(contact *Contact) bool {
 	}
 	return false
 }
-
+func (candidates *ContactCandidates) Sorted() bool {
+	last := candidates.Len() - 1
+	for i, ct := range candidates.contacts {
+		if i == last {
+			return true
+		}
+		if !(ct.Less(&candidates.contacts[i+1])) {
+			return false
+		}
+	}
+	return true
+}
 
 // CalcDistance calculates the distance to the target and 
 // fills the contacts distance field

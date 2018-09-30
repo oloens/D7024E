@@ -184,12 +184,10 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 		close(ch)
 	}
 
-
-
-		
-
+		fmt.Println("PRE-SORT, Sorted() --> ", shortList.Sorted())	
 		fmt.Println("Total nodes probed for this lookup: ", probed)
 		shortList.Sort()
+		fmt.Println("POST-SORT, Sorted() --> ", shortList.Sorted())
 		return shortList.GetContacts(shortList.Len()), closest, nil
 	}
 
