@@ -34,7 +34,7 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 
 	//removeFromShortlist := &ContactCandidates{}
 	var channels []chan []string
-	queriedNodes := make(map[Contact]bool)
+	queriedNodes := make(map[string]bool)
 	alpha := kademlia.Alpha
 	var closest *Contact
 	var initialized bool
@@ -48,8 +48,8 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 		queryCandidates := shortList.GetContacts(shortList.Len())
 		current := 0
 		for i := 0; current < alpha && i <shortList.Len(); i++ {
-			if queriedNodes[queryCandidates[i]] {continue}
-			queriedNodes[queryCandidates[i]] = true
+			if queriedNodes[queryCandidates[i].ID.String()] {continue}
+			queriedNodes[queryCandidates[i].ID.String()] = true
 			ch := make(chan []string)
 			channels = append(channels, ch)
 			switch iterateType {
@@ -158,6 +158,7 @@ func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []strin
 	id := NewRandomKademliaID()
 	msgchan := NewMessageChannel(id)
 	kademlia.Network.Mgr.AddMessageChannel(msgchan)
+
 	kademlia.Network.SendFindContactMessage(target, contact, id)
 	response := <-msgchan.Channel
 	return response.GetContacts()
@@ -188,8 +189,14 @@ func (kademlia *Kademlia) Ping(contact *Contact) {
 }
 func (kademlia *Kademlia) Bootstrap() {
 	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", kademlia.Me.ID)
+	//fmt.Println("Bootstrap complete! k closest:")
 	for _, contact := range kclosest {
 		kademlia.Rt.AddContact(contact)
+		//fmt.Println(contact.String())
+	}
+	fmt.Println("Bootstrap complete! 20 closest to me:")
+	for _, contact := range kademlia.Rt.FindClosestContacts(NewRandomKademliaID(), 20) {
+		fmt.Println(contact.ID.String())
 	}
 
 }

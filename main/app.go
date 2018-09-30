@@ -36,7 +36,7 @@ func main() {
 		me = d7024e.NewContact(id, ip)
 	}
 //	strContact := me.String()
-
+	fmt.Println("my id is :" + me.ID.String())
 
 	rt := d7024e.NewRoutingTable(me)
 	//rt.AddContact(me)
@@ -69,7 +69,7 @@ func main() {
 	//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	if ip != tarip {
 		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
-		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("0fda68927f2b2ff836f73578db0fa54c29f7fd92"), tarip))
+		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
 		time.Sleep(1000 * time.Millisecond)
 		kademlia.Bootstrap()
 		//net.SendFindContactMessage(&tar)

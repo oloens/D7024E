@@ -23,17 +23,19 @@ func NewMessageChannelManager() *MessageChannelManager {
 	mgr.mtx = &sync.Mutex{}
 	return mgr
 }
-
+func (mgr *MessageChannelManager) Len() int {
+	return len(mgr.MessageChannels)
+}
 func (mgr *MessageChannelManager) AddMessageChannel(msgchan *MessageChannel) {
 	mgr.mtx.Lock()
 	defer mgr.mtx.Unlock()
 	mgr.MessageChannels = append(mgr.MessageChannels, msgchan)
 }
 func (mgr *MessageChannelManager) GetMessageChannel(id *KademliaID) *MessageChannel {
-	mgr.mtx.Lock()
-	defer mgr.mtx.Unlock()
+	//mgr.mtx.Lock()
+	//defer mgr.mtx.Unlock()
 	for _, msgchan := range mgr.MessageChannels {
-		if msgchan.ID == id {
+		if msgchan.ID.String() == id.String() {
 			return msgchan
 		}
 	}
@@ -44,7 +46,7 @@ func (mgr *MessageChannelManager) RemoveMessageChannel(id *KademliaID) {
 	defer mgr.mtx.Unlock()
 	index := -1
 	for i, msgchan := range mgr.MessageChannels {
-		if msgchan.ID == id {
+		if msgchan.ID.String() == id.String() {
 			index = i
 		}
 	}
