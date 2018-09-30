@@ -108,13 +108,8 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		response := buildMsgWithArray([]string{me.ID.String(), me.Address, "find_node_response", message.GetRpcID()}, contacts_string)
 		sendMsg(message.GetSndrAddress(), response)
 	case "find_node_response":
-		fmt.Println("length is ")
-		fmt.Println(network.Mgr.Len())
-		fmt.Println("now crash ")
 		rpc_id := NewKademliaID(message.GetRpcID())
-		fmt.Println(rpc_id.String())
 		msgchan := network.Mgr.GetMessageChannel(rpc_id)
-		fmt.Println(msgchan.ID.String())
 		msgchan.Channel <- message
 	case "find_val":
 		targetKey :=  message.GetKey()

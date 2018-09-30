@@ -21,10 +21,14 @@ func main() {
 
 	rawip := getIP()
 	ip := rawip+":8000"
-	seed := rawip[len(rawip)-1:]
+	split_ip := strings.Split(rawip, ".")
+	seed := strconv.Atoi(split_ip[3])
+	//fmt.Println(split_ip[3])
+	//seed := rawip[len(rawip)-1:]
 	id := d7024e.NewRandomKademliaID()
 	seed_int, _ := strconv.Atoi(seed)
-        tarip := "172.17.0.2:8000"
+        //tarip := "172.17.0.2:8000"
+	tarip := "10.0.0.4:8000"
 	var me d7024e.Contact
 	fmt.Println(d7024e.NewRandomKademliaID().String())
 	if tarip == ip {
@@ -70,7 +74,7 @@ func main() {
 	if ip != tarip {
 		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(30000 * time.Millisecond)
 		kademlia.Bootstrap()
 		//net.SendFindContactMessage(&tar)
 		//net.SendFindDataMessage(hash, &tar)
@@ -84,6 +88,12 @@ func main() {
 		   command = strings.Replace(command, "\n", "", -1)
 		   split := strings.Split(command, " ")
 		   switch split[0] {
+		   case "info": 
+		   	   fmt.Println("Node with ID: ", kademlia.Me.ID.String())
+			   fmt.Println("My 20 closest contacts are: ")
+			   for _, ct := range kademlia.Rt.FindClosestContacts(kademlia.Me.ID, 20) {
+				   fmt.Println(ct.ID.String())
+			   }
 		   case "store":
 			   fmt.Println("executing store command on string: " + split[1])
 			   value := []byte(split[1])
@@ -115,6 +125,23 @@ func main() {
 	
 }
 func getIP() string {
+	/*
+	for {
+	fmt.Println("begin ip stuff")
+	ifaces, _ := net.Interfaces()
+	for _, i := range ifaces {
+		fmt.Println(i)
+		addrs, _ := i.Addrs()
+		fmt.Println(addrs)
+		for _, addr := range addrs {
+			fmt.Println(addr)
+		}
+	}
+	fmt.Println("end ip stuff")
+}
+
+*/
+
 	iface, _ := net.InterfaceByName("eth0")
         addrs, _ := iface.Addrs()
         for _, addr := range addrs {

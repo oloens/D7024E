@@ -25,6 +25,14 @@ func RestoreContact(contact string) Contact {
 	addr := split[3]
 	return NewContact(NewKademliaID(id), addr)
 }
+func (candidates *ContactCandidates) Exists(contact *Contact) bool {
+	for _, ct := range candidates.contacts {
+		if ct.ID.String() == contact.ID.String() {
+			return true
+		}
+	}
+	return false
+}
 
 
 // CalcDistance calculates the distance to the target and 
