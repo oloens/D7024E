@@ -256,6 +256,7 @@ func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []strin
 	case response := <-msgchan.Channel:
 		close(msgchan.Channel)
 		kademlia.Network.Mgr.RemoveMessageChannel(id)
+		kademlia.Rt.AddContact(*contact)
 		return response.GetContacts()
 	case <-time.After(ttl):
 		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
@@ -272,6 +273,7 @@ func (kademlia *Kademlia) FindValue(value *KademliaID, contact *Contact) ([]stri
 		if response.GetData() != nil {
 			return nil, response.GetData()
 		}
+		kademlia.Rt.AddContact(*contact)
         	return response.GetContacts(), nil
 	case <-time.After(ttl):
 		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
@@ -283,7 +285,7 @@ func (kademlia *Kademlia) SendStore(hash string, value []byte) {
 	for _, contact := range kclosest {
 		kademlia.Network.SendStoreMessage(string(value[:]), NewKademliaID(hash), &contact)
 		if contact.ID.String() != kademlia.Me.ID.String() {
-			kademlia.Rt.AddContact(contact) //when do we update routing table
+			//kademlia.Rt.AddContact(contact) //when do we update routing table
 		}
 	}
 	go kademlia.Republish(hash, value)
@@ -306,7 +308,7 @@ func (kademlia *Kademlia) Bootstrap() bool {
 	fmt.Println("Bootstrap complete! k closest:")
 	for _, contact := range kclosest {
 		if contact.ID.String() != kademlia.Me.ID.String() {
-			kademlia.Rt.AddContact(contact)
+			//kademlia.Rt.AddContact(contact)
 		}
 		fmt.Println(contact.String())
 	}
@@ -321,7 +323,7 @@ func (kademlia *Kademlia) SendFindValue(hash string) (*Contact, []byte){
 
 	for _, contact := range kclosest {
 		if contact.ID.String() != kademlia.Me.ID.String() {
-			kademlia.Rt.AddContact(contact)
+			//kademlia.Rt.AddContact(contact)
 		}
 	}
 	return closest, val

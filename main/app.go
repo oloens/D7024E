@@ -98,7 +98,7 @@ func main() {
 		   switch split[0] {
 		   case "info": 
 		   	   fmt.Println("Node with ID: ", kademlia.Me.ID.String())
-			   fmt.Println("My 20 closest contacts are: ")
+			   fmt.Println("The 20 closest contacts in my routing table are: ")
 			   for _, ct := range kademlia.Rt.FindClosestContacts(kademlia.Me.ID, 20) {
 				   fmt.Println(ct.ID.String())
 			   }
