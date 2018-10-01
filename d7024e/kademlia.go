@@ -32,8 +32,6 @@ func (kademlia Kademlia) GetFiles() []File {
 	return kademlia.files
 }
 func (kademlia *Kademlia) AddFile(file File) {
-	//kademlia.Mtx.Lock()
-	//defer kademlia.Mtx.Unlock()
 	kademlia.files = append(kademlia.files, file)
 }
 func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID) (contactList []Contact, closestNode *Contact, value []byte) {
@@ -294,7 +292,6 @@ func (kademlia *Kademlia) Republish(hash string, value []byte) {
 	time.Sleep(tRepublish * time.Second)
 	fmt.Println("Republishing file with hash: " + hash)
 	kademlia.SendStore(hash, value)
-	kademlia.Republish(hash, value)
 }
 func (kademlia *Kademlia) Ping(contact *Contact) {
 	//TODO
@@ -335,7 +332,9 @@ func (kademlia *Kademlia) LookupContact(target *Contact) {
 
 
 func (kademlia *Kademlia) LookupData(hash string) []byte {
+	kademlia.Mtx.Lock()
 	file := kademlia.LookupFile(hash)
+	kademlia.Mtx.Unlock()
 	if file != nil {
 		return file.Value
 	}
@@ -357,8 +356,8 @@ func Hash(data []byte) string {
 }
 func (kademlia *Kademlia) Store(data []byte) {
 	hash := Hash(data)
-	//kademlia.Mtx.Lock()
-	//defer kademlia.Mtx.Unlock()
+	kademlia.Mtx.Lock()
+	defer kademlia.Mtx.Unlock()
 	for i, file := range kademlia.files {
 		if file.Hash == hash {
 			kademlia.files[i].TimeSinceRepublish = 0
@@ -378,16 +377,8 @@ func (kademlia *Kademlia) index(hash string) int { //using the outcommended stuf
 	return -1
 }
 func (kademlia *Kademlia) Pin(hash string) {
-	//var file *File
-	//file = kademlia.LookupFile(hash)
-	//fmt.Println("2")
-	//fmt.Println(file)
-	//if file == nil {
-	//	return
-	//}
-	//file.Pin = true
-	//kademlia.Mtx.Lock()
-	//defer kademlia.Mtx.Unlock()
+	kademlia.Mtx.Lock()
+	defer kademlia.Mtx.Unlock()
 	i := kademlia.index(hash)
 	if i == -1 {
 		fmt.Println("error in pin, file not found")
@@ -398,13 +389,8 @@ func (kademlia *Kademlia) Pin(hash string) {
 
 }
 func (kademlia *Kademlia) Unpin(hash string) {
-	//file := kademlia.LookupFile(hash)
-	//if file == nil {
-	//	return
-	//}
-	//file.Pin = false
-	//kademlia.Mtx.Lock()
-	//defer kademlia.Mtx.Unlock()
+	kademlia.Mtx.Lock()
+	defer kademlia.Mtx.Unlock()
 	i := kademlia.index(hash)
         if i == -1 {
                 fmt.Println("error in unpin, file not found")
@@ -417,7 +403,7 @@ func (kademlia *Kademlia) Unpin(hash string) {
 func (kademlia *Kademlia) Purge() {
 	timer := time.NewTimer(5 * time.Second)
 	<-timer.C
-	//kademlia.Mtx.Lock()
+	kademlia.Mtx.Lock()
 	for i, _ := range kademlia.files {
 		kademlia.files[i].TimeSinceRepublish += 5
 	}
@@ -430,7 +416,7 @@ func (kademlia *Kademlia) Purge() {
 		}
 	}
 	kademlia.files = newfiles
-	//kademlia.Mtx.Unlock()
+	kademlia.Mtx.Unlock()
 	kademlia.Purge()
 }
 

@@ -25,15 +25,10 @@ func main() {
 	ip := rawip+":8000"
 	split_ip := strings.Split(rawip, ".")
 	seed, _ := strconv.Atoi(split_ip[3])
-	//fmt.Println(split_ip[3])
-	//seed := rawip[len(rawip)-1:]
-	//id := d7024e.NewRandomKademliaID()
-	//seed_int, _ := strconv.Atoi(seed)
-        //tarip := "172.17.0.2:8000"
-	tarip := "10.0.0.4:8000"
+        //tarip := "172.17.0.2:8000" // for normal docker run
+	tarip := "10.0.0.4:8000" // for docker swarm
 	var me d7024e.Contact
-	//fmt.Println(d7024e.NewRandomKademliaID().String())
-	if tarip == ip {
+	if tarip == ip { // base bootstrap node
                 me = d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), ip)
         } else {
 		for i := 0; i < seed; i++ {
@@ -42,27 +37,20 @@ func main() {
 		id := d7024e.NewRandomKademliaID()
 		me = d7024e.NewContact(id, ip)
 	}
-//	strContact := me.String()
 	fmt.Println("my id is :" + me.ID.String())
 
 	rt := d7024e.NewRoutingTable(me)
-	//rt.AddContact(me)
 
-	//testing store
+	//some initial stuff stored
 	kademlia := &d7024e.Kademlia{}
 	kademlia.Mtx = &sync.Mutex{}
 	val := []byte("testvalueasdasdtjenatjena")
 	val2 := []byte("testvalue2asdasdtjenatjena")
 	kademlia.Store(val)
 	kademlia.Store(val2)
-	//hash := d7024e.Hash(val)
 	hash2 := d7024e.Hash(val2)
 	kademlia.Pin(hash2)
 	go kademlia.Purge()
-	//result := kademlia.LookupData(hash)
-	//fmt.Println(string(result[:]))
-	//fmt.Println(string(hash[:]))
-	//fmt.Println(me.ID.String())
 
 	
 	net := d7024e.NewNetwork(&me, rt, kademlia, d7024e.NewMessageChannelManager())
@@ -71,12 +59,8 @@ func main() {
 	kademlia.K = 20
 	kademlia.Alpha = 3
 	kademlia.Me = me
-	//kademlia.Rt.Add(d7024e.NewContact(d7024e.NewKademliaID("0fda68927f2b2ff836f73578db0fa54c29f7fd92"), tarip)
 	go net.Listen(me, 8000)
-	//tarip := "10.0.0.2:8000"
-	//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 	if ip != tarip {
-		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
 		success := kademlia.Bootstrap()
 		for !success {
@@ -84,9 +68,6 @@ func main() {
 			time.Sleep(5 * time.Second)
 			success = kademlia.Bootstrap()
 		}
-		//net.SendFindContactMessage(&tar)
-		//net.SendFindDataMessage(hash, &tar)
-		//fmt.Println("sent ping msg, sleeping...")
 	
 	}
 	
@@ -133,22 +114,6 @@ func main() {
 	
 }
 func getIP() string {
-	/*
-	for {
-	fmt.Println("begin ip stuff")
-	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		fmt.Println(i)
-		addrs, _ := i.Addrs()
-		fmt.Println(addrs)
-		for _, addr := range addrs {
-			fmt.Println(addr)
-		}
-	}
-	fmt.Println("end ip stuff")
-}
-
-*/
 
 	iface, _ := net.InterfaceByName("eth0")
         addrs, _ := iface.Addrs()
