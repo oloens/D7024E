@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 	"fmt"
+	"sync"
 	//"strconv"
 )
 
@@ -15,7 +16,12 @@ type Kademlia struct {
 	Rt 	*RoutingTable
 	Alpha 	int
 	K	int
+	Mtx 	*sync.Mutex
 }
+const tRepublish = 30
+const tExpire = 35
+const ttl = 5 * time.Second
+
 type File struct {
 	Hash	string
 	Value	[]byte
@@ -26,6 +32,8 @@ func (kademlia Kademlia) GetFiles() []File {
 	return kademlia.files
 }
 func (kademlia *Kademlia) AddFile(file File) {
+	//kademlia.Mtx.Lock()
+	//defer kademlia.Mtx.Unlock()
 	kademlia.files = append(kademlia.files, file)
 }
 func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID) (contactList []Contact, closestNode *Contact, value []byte) {
@@ -112,6 +120,9 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
                                         }
 
 				}
+			case "TIMEOUT":
+				fmt.Println("Node " + data[0] + " inactive, removing from shortlist")
+				shortList.Remove(data[0])
 			}
 			close(channels[0])
 			//channels = append(channels[:i], channels[i+1]...)
@@ -180,15 +191,21 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
                                         }
 
 				}
+			case "TIMEOUT":
+				fmt.Println("Node " + data[0] + " inactive, removing from shortlist..")
+				shortList.Remove(data[0])
 			}
 		close(ch)
 	}
-
-		fmt.Println("PRE-SORT, Sorted() --> ", shortList.Sorted())	
+	
 		fmt.Println("Total nodes probed for this lookup: ", probed)
 		shortList.Sort()
-		fmt.Println("POST-SORT, Sorted() --> ", shortList.Sorted())
-		return shortList.GetContacts(shortList.Len()), closest, nil
+		if (shortList.Len()<kademlia.K) {
+			return shortList.GetContacts(shortList.Len()), closest, nil
+		} else {
+			return shortList.GetContacts(kademlia.K), closest, nil
+		}
+
 	}
 
 
@@ -201,12 +218,22 @@ func (kademlia *Kademlia) LookupMessage(rpctype string, target *KademliaID, cont
 	switch rpctype {
 	case "FIND_CONTACT":
 		result := kademlia.FindNode(target, contact)
+		if result[0] == "TIMEOUT" {
+			ch <- result
+			ch <- []string{contact.ID.String()}
+			return
+		}
 		ch <- []string{rpctype}
 		ch <- result
 		return
 	case "FIND_VALUE":
 		cts, data := kademlia.FindValue(target, contact)
 		if data != nil {
+			if cts[0] == "TIMEOUT" {
+				ch <- cts
+				ch <- []string{contact.ID.String()}
+				return
+			}
 			ch <- []string{rpctype, "DATA"}
 			ch <- []string{string(data[:])}
 			return
@@ -224,46 +251,66 @@ func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []strin
 	id := NewRandomKademliaID()
 	msgchan := NewMessageChannel(id)
 	kademlia.Network.Mgr.AddMessageChannel(msgchan)
-
 	kademlia.Network.SendFindContactMessage(target, contact, id)
-	response := <-msgchan.Channel
-	return response.GetContacts()
-
+	select {
+	case response := <-msgchan.Channel:
+		close(msgchan.Channel)
+		kademlia.Network.Mgr.RemoveMessageChannel(id)
+		return response.GetContacts()
+	case <-time.After(ttl):
+		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
+		return []string{"TIMEOUT"}
+	}
 }
 func (kademlia *Kademlia) FindValue(value *KademliaID, contact *Contact) ([]string, []byte) {
         id := NewRandomKademliaID()
         msgchan := NewMessageChannel(id)
         kademlia.Network.Mgr.AddMessageChannel(msgchan)
         kademlia.Network.SendFindDataMessage(value.String(), contact, id)
-        response := <-msgchan.Channel
-	if response.GetData() != nil {
-		return nil, response.GetData()
+        select {
+	case response := <-msgchan.Channel:
+		if response.GetData() != nil {
+			return nil, response.GetData()
+		}
+        	return response.GetContacts(), nil
+	case <-time.After(ttl):
+		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
+		return []string{"TIMEOUT"}, nil
 	}
-        return response.GetContacts(), nil
 }
 func (kademlia *Kademlia) SendStore(hash string, value []byte) {
 	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", NewKademliaID(hash))
 	for _, contact := range kclosest {
 		kademlia.Network.SendStoreMessage(string(value[:]), NewKademliaID(hash), &contact)
-		kademlia.Rt.AddContact(contact) //when do we update routing table
+		if contact.ID.String() != kademlia.Me.ID.String() {
+			kademlia.Rt.AddContact(contact) //when do we update routing table
+		}
 	}
-
+	go kademlia.Republish(hash, value)
 }
-
+func (kademlia *Kademlia) Republish(hash string, value []byte) {
+	time.Sleep(tRepublish * time.Second)
+	fmt.Println("Republishing file with hash: " + hash)
+	kademlia.SendStore(hash, value)
+	kademlia.Republish(hash, value)
+}
 func (kademlia *Kademlia) Ping(contact *Contact) {
 	//TODO
 }
-func (kademlia *Kademlia) Bootstrap() {
+func (kademlia *Kademlia) Bootstrap() bool {
 	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", kademlia.Me.ID)
+	if len(kclosest) == 0 {
+		return false
+	}
+
 	fmt.Println("Bootstrap complete! k closest:")
 	for _, contact := range kclosest {
-		kademlia.Rt.AddContact(contact)
+		if contact.ID.String() != kademlia.Me.ID.String() {
+			kademlia.Rt.AddContact(contact)
+		}
 		fmt.Println(contact.String())
 	}
-	//fmt.Println("Bootstrap complete! 20 closest to me:")
-	//for _, contact := range kademlia.Rt.FindClosestContacts(NewRandomKademliaID(), 20) {
-//		fmt.Println(contact.ID.String())
-//	}
+	return true
 
 }
 func (kademlia *Kademlia) SendFindValue(hash string) (*Contact, []byte){
@@ -273,7 +320,9 @@ func (kademlia *Kademlia) SendFindValue(hash string) (*Contact, []byte){
 	}
 
 	for _, contact := range kclosest {
-		kademlia.Rt.AddContact(contact)
+		if contact.ID.String() != kademlia.Me.ID.String() {
+			kademlia.Rt.AddContact(contact)
+		}
 	}
 	return closest, val
 }
@@ -306,6 +355,8 @@ func Hash(data []byte) string {
 }
 func (kademlia *Kademlia) Store(data []byte) {
 	hash := Hash(data)
+	//kademlia.Mtx.Lock()
+	//defer kademlia.Mtx.Unlock()
 	for i, file := range kademlia.files {
 		if file.Hash == hash {
 			kademlia.files[i].TimeSinceRepublish = 0
@@ -333,6 +384,8 @@ func (kademlia *Kademlia) Pin(hash string) {
 	//	return
 	//}
 	//file.Pin = true
+	//kademlia.Mtx.Lock()
+	//defer kademlia.Mtx.Unlock()
 	i := kademlia.index(hash)
 	if i == -1 {
 		fmt.Println("error in pin, file not found")
@@ -348,6 +401,8 @@ func (kademlia *Kademlia) Unpin(hash string) {
 	//	return
 	//}
 	//file.Pin = false
+	//kademlia.Mtx.Lock()
+	//defer kademlia.Mtx.Unlock()
 	i := kademlia.index(hash)
         if i == -1 {
                 fmt.Println("error in unpin, file not found")
@@ -360,18 +415,20 @@ func (kademlia *Kademlia) Unpin(hash string) {
 func (kademlia *Kademlia) Purge() {
 	timer := time.NewTimer(5 * time.Second)
 	<-timer.C
+	//kademlia.Mtx.Lock()
 	for i, _ := range kademlia.files {
 		kademlia.files[i].TimeSinceRepublish += 5
 	}
 	var newfiles []File
 	for _, file := range kademlia.files {
-		if file.Pin == true || file.TimeSinceRepublish <= 30 {
+		if file.Pin == true || file.TimeSinceRepublish <= tExpire {
 			newfiles = append(newfiles, file)
 		} else {
 			fmt.Println("timer expired for file with hash: " + file.Hash + " , removing..")
 		}
 	}
 	kademlia.files = newfiles
+	//kademlia.Mtx.Unlock()
 	kademlia.Purge()
 }
 

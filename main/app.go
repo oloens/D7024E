@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"math/rand"
+	"sync"
 )
 
 
@@ -31,9 +32,9 @@ func main() {
         //tarip := "172.17.0.2:8000"
 	tarip := "10.0.0.4:8000"
 	var me d7024e.Contact
-	fmt.Println(d7024e.NewRandomKademliaID().String())
+	//fmt.Println(d7024e.NewRandomKademliaID().String())
 	if tarip == ip {
-                me = d7024e.NewContact(d7024e.NewRandomKademliaID(), ip)
+                me = d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), ip)
         } else {
 		for i := 0; i < seed; i++ {
 	    		rand.Seed(time.Now().UTC().UnixNano())
@@ -49,6 +50,7 @@ func main() {
 
 	//testing store
 	kademlia := &d7024e.Kademlia{}
+	kademlia.Mtx = &sync.Mutex{}
 	val := []byte("testvalueasdasdtjenatjena")
 	val2 := []byte("testvalue2asdasdtjenatjena")
 	kademlia.Store(val)
@@ -76,8 +78,12 @@ func main() {
 	if ip != tarip {
 		//tar := d7024e.NewContact(d7024e.NewRandomKademliaID(), tarip)
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
-		time.Sleep(time.Duration(seed * 1000)  * time.Millisecond)
-		kademlia.Bootstrap()
+		success := kademlia.Bootstrap()
+		for !success {
+			fmt.Println("bootstrap node was inactive, trying again in 5 seconds...")
+			time.Sleep(5 * time.Second)
+			success = kademlia.Bootstrap()
+		}
 		//net.SendFindContactMessage(&tar)
 		//net.SendFindDataMessage(hash, &tar)
 		//fmt.Println("sent ping msg, sleeping...")

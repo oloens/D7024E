@@ -33,6 +33,18 @@ func (candidates *ContactCandidates) Exists(contact *Contact) bool {
 	}
 	return false
 }
+func (candidates *ContactCandidates) Remove(id string) {
+	index := -1
+	for i, ct := range candidates.contacts {
+		if ct.ID.String() == id {
+			index = i
+		}
+	}
+	if index != -1 {
+		candidates.contacts[index] = candidates.contacts[len(candidates.contacts)-1]
+		candidates.contacts = candidates.contacts[:len(candidates.contacts)-1]
+	}
+}
 func (candidates *ContactCandidates) Sorted() bool {
 	last := candidates.Len() - 1
 	for i, ct := range candidates.contacts {
