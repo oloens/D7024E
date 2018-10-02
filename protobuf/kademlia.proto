@@ -1,0 +1,19 @@
+
+syntax = "proto3";
+package protobuf;
+
+message kMessage{
+    string sndrID = 1;
+    string sndrAddress = 2; 
+    string msgType = 3;
+
+    string rcvrID = 4;
+    string rcvrAddress = 5;
+    string dist = 6;
+
+    bytes data = 7;             //file
+    string key = 8;
+    string val = 9;
+    repeated string contacts = 10;
+    string rpcID = 11;
+}

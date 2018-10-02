@@ -3,6 +3,7 @@ package d7024e
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // Contact definition
@@ -16,6 +17,45 @@ type Contact struct {
 // NewContact returns a new instance of a Contact
 func NewContact(id *KademliaID, address string) Contact {
 	return Contact{id, address, nil}
+}
+//Added code from us TODO actually test it
+func RestoreContact(contact string) Contact {
+	split := strings.Split(contact, "\"")
+	id := split[1]
+	addr := split[3]
+	return NewContact(NewKademliaID(id), addr)
+}
+func (candidates *ContactCandidates) Exists(contact *Contact) bool {
+	for _, ct := range candidates.contacts {
+		if ct.ID.String() == contact.ID.String() {
+			return true
+		}
+	}
+	return false
+}
+func (candidates *ContactCandidates) Remove(id string) {
+	index := -1
+	for i, ct := range candidates.contacts {
+		if ct.ID.String() == id {
+			index = i
+		}
+	}
+	if index != -1 {
+		candidates.contacts[index] = candidates.contacts[len(candidates.contacts)-1]
+		candidates.contacts = candidates.contacts[:len(candidates.contacts)-1]
+	}
+}
+func (candidates *ContactCandidates) Sorted() bool {
+	last := candidates.Len() - 1
+	for i, ct := range candidates.contacts {
+		if i == last {
+			return true
+		}
+		if !(ct.Less(&candidates.contacts[i+1])) {
+			return false
+		}
+	}
+	return true
 }
 
 // CalcDistance calculates the distance to the target and 
