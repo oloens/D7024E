@@ -17,6 +17,7 @@ type Kademlia struct {
 	Alpha 	int
 	K	int
 	Mtx 	*sync.Mutex
+	RtMtx 	*sync.Mutex
 }
 const tRepublish = 30
 const tExpire = 35
@@ -36,8 +37,9 @@ func (kademlia *Kademlia) AddFile(file File) {
 }
 func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID) (contactList []Contact, closestNode *Contact, value []byte) {
 	shortList := &ContactCandidates{}
+	kademlia.RtMtx.Lock()
 	shortList.Append(kademlia.Rt.FindClosestContacts(target, kademlia.Alpha))
-
+	kademlia.RtMtx.Unlock()
 	//removeFromShortlist := &ContactCandidates{}
 	var channels []chan []string
 	queriedNodes := make(map[string]bool)
@@ -137,7 +139,9 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 	}
 	if closestThisRound == closest {
 		fmt.Println("Did not find any closer this round, sending out to k closest unqueried nodes")
+		kademlia.RtMtx.Lock()
 		cts := kademlia.Rt.FindClosestContacts(target, kademlia.K)
+		kademlia.RtMtx.Unlock()
 		for i := 0; i<len(cts); i++ {
 			if queriedNodes[cts[i].ID.String()] {
 				continue
@@ -255,7 +259,9 @@ func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []strin
 	case response := <-msgchan.Channel:
 		close(msgchan.Channel)
 		kademlia.Network.Mgr.RemoveMessageChannel(id)
+		kademlia.RtMtx.Lock()
 		kademlia.Rt.AddContact(*contact)
+		kademlia.RtMtx.Unlock()
 		return response.GetContacts()
 	case <-time.After(ttl):
 		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
@@ -276,7 +282,9 @@ func (kademlia *Kademlia) FindValue(value *KademliaID, contact *Contact) ([]stri
 		}
 		close(msgchan.Channel)
 		kademlia.Network.Mgr.RemoveMessageChannel(id)
+		kademlia.RtMtx.Lock()
 		kademlia.Rt.AddContact(*contact)
+		kademlia.RtMtx.Unlock()
         	return response.GetContacts(), nil
 	case <-time.After(ttl):
 		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
@@ -309,7 +317,9 @@ func (kademlia *Kademlia) Ping(contact *Contact) {
         case response := <-msgchan.Channel:
                 close(msgchan.Channel)
                 kademlia.Network.Mgr.RemoveMessageChannel(id)
+		kademlia.RtMtx.Lock()
                 kademlia.Rt.AddContact(*contact)
+		kademlia.RtMtx.Unlock()
 		fmt.Println("ping response from " + response.GetSndrID())
                 //return response.GetContacts()
 

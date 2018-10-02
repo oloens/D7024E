@@ -83,7 +83,9 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	case "ping":
 		response := buildMsg([]string{me.ID.String(), me.Address, "pong", message.GetRpcID()})
 		sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
+		network.kademlia.RtMtx.Lock()
 		network.rt.AddContact(sender)
+		network.kademlia.RtMtx.Unlock()
 		sendMsg(message.GetSndrAddress(), response)
 	case "pong":
 		rpc_id := NewKademliaID(message.GetRpcID())
@@ -92,10 +94,12 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	case "find_node":
 		targetKey :=  message.GetKey()
 		target := NewKademliaID(targetKey)
+		network.kademlia.RtMtx.Lock()
 		contacts := network.rt.FindClosestContacts(target, 20)
 		sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
 		sender.CalcDistance(me.ID)
 		network.rt.AddContact(sender)
+		network.kademlia.RtMtx.Unlock()
 
 		me_with_dist := *me
 		me_with_dist.CalcDistance(target)
@@ -118,13 +122,20 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		if result != nil {
 			response := buildMsg([]string{me.ID.String(), me.Address, "find_val_response", string(result[:]), message.GetRpcID()})
                     sendMsg(message.GetSndrAddress(), response)
+		    sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
+                network.kademlia.RtMtx.Lock()
+                network.rt.AddContact(sender)
+                network.kademlia.RtMtx.Unlock()
+
 
 		} else {
 			target := NewKademliaID(targetKey)
+			network.kademlia.RtMtx.Lock()
 	                contacts := network.rt.FindClosestContacts(target, 20)
                 	sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
                 	sender.CalcDistance(me.ID)
                 	network.rt.AddContact(sender)
+			network.kademlia.RtMtx.Unlock()
 
                 	me_with_dist := *me
                 	me_with_dist.CalcDistance(target)
@@ -147,6 +158,11 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		data := message.GetData()
 		key := message.GetKey()
 		network.kademlia.Store(data)
+		sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
+                network.kademlia.RtMtx.Lock()
+                network.rt.AddContact(sender)
+                network.kademlia.RtMtx.Unlock()
+
 		fmt.Println("Store RPC received, storing file with hash: " + key)
 
 	default:

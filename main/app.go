@@ -25,7 +25,7 @@ func main() {
 	ip := rawip+":8000"
 	split_ip := strings.Split(rawip, ".")
 	seed, _ := strconv.Atoi(split_ip[3])
-        //tarip := "172.17.0.2:8000" // for normal docker run
+       // tarip := "172.17.0.2:8000" // for normal docker run
 	tarip := "10.0.0.4:8000" // for docker swarm
 	var me d7024e.Contact
 	if tarip == ip { // base bootstrap node
@@ -44,6 +44,7 @@ func main() {
 	//some initial stuff stored
 	kademlia := &d7024e.Kademlia{}
 	kademlia.Mtx = &sync.Mutex{}
+	kademlia.RtMtx = &sync.Mutex{}
 	val := []byte("testvalueasdasdtjenatjena")
 	val2 := []byte("testvalue2asdasdtjenatjena")
 	kademlia.Store(val)
