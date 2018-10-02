@@ -101,11 +101,11 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 		network.rt.AddContact(sender)
 		network.kademlia.RtMtx.Unlock()
 
-		me_with_dist := *me
-		me_with_dist.CalcDistance(target)
-		if len(contacts)<20 {
-			contacts = append(contacts, me_with_dist)
-		}
+		//me_with_dist := *me
+		//me_with_dist.CalcDistance(target)
+		//if len(contacts)<20 {
+		//	contacts = append(contacts, me_with_dist)
+		//}
 		var contacts_string []string
 		for _, ct := range contacts {
 			contacts_string = append(contacts_string, ct.String())
@@ -137,11 +137,11 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
                 	network.rt.AddContact(sender)
 			network.kademlia.RtMtx.Unlock()
 
-                	me_with_dist := *me
-                	me_with_dist.CalcDistance(target)
-                	if len(contacts)<20 {
-                        	contacts = append(contacts, me_with_dist)
-                	}
+                	//me_with_dist := *me
+                	//me_with_dist.CalcDistance(target)
+                	//if len(contacts)<20 {
+                        //	contacts = append(contacts, me_with_dist)
+                	//}
                 	var contacts_string []string
                 	for _, ct := range contacts {
                         	contacts_string = append(contacts_string, ct.String())
