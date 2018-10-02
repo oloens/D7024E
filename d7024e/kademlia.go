@@ -237,10 +237,12 @@ func (kademlia *Kademlia) LookupMessage(rpctype string, target *KademliaID, cont
 			ch <- []string{string(data[:])}
 			return
 		} else {
-		        if cts[0] == "TIMEOUT" {
-                                ch <- cts
-                                ch <- []string{contact.ID.String()}
-                                return
+			if len(cts)>0 {
+				if cts[0] == "TIMEOUT" {
+                                	ch <- cts
+                                	ch <- []string{contact.ID.String()}
+                                	return
+				}
                         }
 
 			ch <- []string{rpctype, "CONTACTS"}
