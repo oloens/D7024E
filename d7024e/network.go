@@ -51,8 +51,8 @@ func (network *Network) Listen(me Contact, port int) {
 	}
 }
 
-func (network *Network) SendPingMessage(contact *Contact) {
-	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "ping"})
+func (network *Network) SendPingMessage(contact *Contact, rpc_id *KademliaID) {
+	message := buildMsg([]string{network.me.ID.String(), network.me.Address, "ping", rpc_id.String()})
 	sendMsg(contact.Address, message)
 }
 
@@ -81,13 +81,14 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	//update RoutingTable here?
 	switch message.GetMsgType() {
 	case "ping":
-		response := buildMsg([]string{me.ID.String(), me.Address, "pong"})
+		response := buildMsg([]string{me.ID.String(), me.Address, "pong", message.GetRpcID()})
+		sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
+		network.rt.AddContact(sender)
 		sendMsg(message.GetSndrAddress(), response)
-		fmt.Println("ping received from " + message.GetSndrAddress() + " , sending pong back")
 	case "pong":
-		//msgchan := network.Mgr.GetMessageChannel(NewKademliaID(message.GetRpcID()))
-                //msgchan.Channel <- message
-		fmt.Println("pong received, todo")
+		rpc_id := NewKademliaID(message.GetRpcID())
+                msgchan := network.Mgr.GetMessageChannel(rpc_id)
+                msgchan.Channel <- message
 	case "find_node":
 		targetKey :=  message.GetKey()
 		target := NewKademliaID(targetKey)
@@ -171,6 +172,7 @@ func buildMsg(input []string) *pb.KMessage {
 			SndrID:      input[0],//proto.String(input[0]),
 			SndrAddress: input[1],//proto.String(input[1]),
 			MsgType:     input[2],//proto.String(input[2]),
+			RpcID:	     input[3],
 		}
 		return msg
 	}

@@ -227,15 +227,16 @@ func (kademlia *Kademlia) LookupMessage(rpctype string, target *KademliaID, cont
 	case "FIND_VALUE":
 		cts, data := kademlia.FindValue(target, contact)
 		if data != nil {
-			if cts[0] == "TIMEOUT" {
-				ch <- cts
-				ch <- []string{contact.ID.String()}
-				return
-			}
 			ch <- []string{rpctype, "DATA"}
 			ch <- []string{string(data[:])}
 			return
 		} else {
+		        if cts[0] == "TIMEOUT" {
+                                ch <- cts
+                                ch <- []string{contact.ID.String()}
+                                return
+                        }
+
 			ch <- []string{rpctype, "CONTACTS"}
 			ch <- cts
 			return
@@ -258,6 +259,8 @@ func (kademlia *Kademlia) FindNode(target *KademliaID, contact *Contact) []strin
 		return response.GetContacts()
 	case <-time.After(ttl):
 		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
+		close(msgchan.Channel)
+		kademlia.Network.Mgr.RemoveMessageChannel(id)
 		return []string{"TIMEOUT"}
 	}
 }
@@ -271,10 +274,14 @@ func (kademlia *Kademlia) FindValue(value *KademliaID, contact *Contact) ([]stri
 		if response.GetData() != nil {
 			return nil, response.GetData()
 		}
+		close(msgchan.Channel)
+		kademlia.Network.Mgr.RemoveMessageChannel(id)
 		kademlia.Rt.AddContact(*contact)
         	return response.GetContacts(), nil
 	case <-time.After(ttl):
 		fmt.Println("Request sent to " + contact.ID.String() + " timed out")
+		close(msgchan.Channel)
+		kademlia.Network.Mgr.RemoveMessageChannel(id)
 		return []string{"TIMEOUT"}, nil
 	}
 }
@@ -294,7 +301,25 @@ func (kademlia *Kademlia) Republish(hash string, value []byte) {
 	kademlia.SendStore(hash, value)
 }
 func (kademlia *Kademlia) Ping(contact *Contact) {
-	//TODO
+	id := NewRandomKademliaID()
+        msgchan := NewMessageChannel(id)
+        kademlia.Network.Mgr.AddMessageChannel(msgchan)
+        kademlia.Network.SendPingMessage(contact, id)
+        select {
+        case response := <-msgchan.Channel:
+                close(msgchan.Channel)
+                kademlia.Network.Mgr.RemoveMessageChannel(id)
+                kademlia.Rt.AddContact(*contact)
+		fmt.Println("ping response from " + response.GetSndrID())
+                //return response.GetContacts()
+
+        case <-time.After(ttl):
+                fmt.Println("Request sent to " + contact.ID.String() + " timed out")
+		close(msgchan.Channel)
+		kademlia.Network.Mgr.RemoveMessageChannel(id)
+                //return []string{"TIMEOUT"}
+        }
+
 }
 func (kademlia *Kademlia) Bootstrap() bool {
 	kclosest, _, _ := kademlia.IterativeLookup("FIND_CONTACT", kademlia.Me.ID)

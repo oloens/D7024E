@@ -77,6 +77,15 @@ func main() {
 		   command = strings.Replace(command, "\n", "", -1)
 		   split := strings.Split(command, " ")
 		   switch split[0] {
+		   case "find":
+			   fmt.Println("trying to find file with data: " + split[1])
+			   closest, data := kademlia.SendFindValue(d7024e.Hash([]byte(split[1])))
+			   if data != nil {
+				   fmt.Println("data found! data is : " + string(data[:]))
+
+			   } else {
+				   fmt.Println("data not found, closest node to hash is: " + closest.ID.String())
+			   }
 		   case "info": 
 		   	   fmt.Println("Node with ID: ", kademlia.Me.ID.String())
 			   fmt.Println("The 20 closest contacts in my routing table are: ")
