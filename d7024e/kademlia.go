@@ -220,10 +220,12 @@ func (kademlia *Kademlia) LookupMessage(rpctype string, target *KademliaID, cont
 	switch rpctype {
 	case "FIND_CONTACT":
 		result := kademlia.FindNode(target, contact)
-		if result[0] == "TIMEOUT" {
-			ch <- result
-			ch <- []string{contact.ID.String()}
-			return
+		if len(result)>0 {
+			if result[0] == "TIMEOUT" {
+				ch <- result
+				ch <- []string{contact.ID.String()}
+				return
+			}
 		}
 		ch <- []string{rpctype}
 		ch <- result
