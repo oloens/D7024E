@@ -20,9 +20,9 @@ type Kademlia struct {
 	RtMtx   *sync.Mutex
 }
 
-const tRepublish = 30
+const tRepublish = 5
 const tExpire = 4
-const ttl = 5 * time.Second
+const ttl = 6 * time.Second
 
 type File struct {
 	Hash               string
@@ -141,9 +141,15 @@ func (kademlia *Kademlia) IterativeLookup(iterateType string, target *KademliaID
 		}
 		if closestThisRound == closest {
 			fmt.Println("Did not find any closer this round, sending out to k closest unqueried nodes")
-			kademlia.RtMtx.Lock()
-			cts := kademlia.Rt.FindClosestContacts(target, kademlia.K)
-			kademlia.RtMtx.Unlock()
+			//kademlia.RtMtx.Lock()
+			//cts := kademlia.Rt.FindClosestContacts(target, kademlia.K)
+			//kademlia.RtMtx.Unlock()
+			var cts []Contact
+			if shortList.Len() < kademlia.K {
+				cts = shortList.GetContacts(shortList.Len())
+			} else {
+				cts = shortList.GetContacts(kademlia.K)
+			}
 			for i := 0; i < len(cts); i++ {
 				if queriedNodes[cts[i].ID.String()] {
 					continue

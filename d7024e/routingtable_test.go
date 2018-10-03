@@ -1,7 +1,6 @@
 package d7024e
 
-import (
-	"fmt"
+/*import (
 	"testing"
 )
 
@@ -19,4 +18,4 @@ func TestRoutingTable(t *testing.T) {
 	for i := range contacts {
 		fmt.Println(contacts[i].String())
 	}
-}
+}*/
