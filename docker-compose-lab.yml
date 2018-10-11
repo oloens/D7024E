@@ -4,8 +4,10 @@ services:
     image: test:latest
     stdin_open: true
     tty: true
+    environment:
+      - BASENODE=0
     deploy:
-      replicas: 5  
+      replicas: 100 
 #        resources:
 #           limits:
 #              cpus: "0.1"
@@ -16,7 +18,18 @@ services:
 #      - "4000:80"
     networks:
       - kademlia_network
-  
+  baseNode:
+    image: test:latest
+    stdin_open: true
+    tty: true
+    environment:
+      - BASENODE=1
+    deploy:
+      replicas: 1
+      restart_policy: 
+        condition: on-failure 
+    networks:
+      - kademlia_network
   serverNode:
             image: server:latest
             stdin_open: true

@@ -13,6 +13,7 @@ import (
 	proto "proto"
 	"time"
 	"d7024e"
+	"math/rand"
 )
 
 type ResponseData struct {
@@ -21,6 +22,7 @@ type ResponseData struct {
 }
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
 	router := mux.NewRouter()
 	router.HandleFunc("/store", Store)
 	router.HandleFunc("/cat", Cat)
@@ -28,7 +30,18 @@ func main() {
 	router.HandleFunc("/unpin", Unpin)
 	addr = getIP()
 	addr = addr + ":8000"
-	target = "10.0.0.4:8000"
+	for {
+		addrs, err := net.LookupIP("baseNode")
+		if err != nil {
+			fmt.Println("could not find baseNode, trying again in 2 seconds")
+			time.Sleep(2 * time.Second)
+		} else {
+			fmt.Println("baseNode found")
+			target = addrs[0].String() + ":8000"
+			break
+		}
+	}
+
 	mgr = d7024e.NewMessageChannelManager()
 	go Listen()
 	log.Fatal(http.ListenAndServe(":8001", router))
@@ -57,7 +70,6 @@ func getIP() string {
 
 func Store(w http.ResponseWriter, r *http.Request) {
 	var Buf bytes.Buffer
-	fmt.Println("a")
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		//todo fix response
@@ -92,6 +104,10 @@ func Store(w http.ResponseWriter, r *http.Request) {
 func Cat(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	key := r.FormValue("key")
+	if len(key) != 40 {
+		fmt.Println("length of key is off, aborting")
+		return
+	}
 	id := d7024e.NewRandomKademliaID()
 	msgchan := d7024e.NewMessageChannel(id)
 	mgr.AddMessageChannel(msgchan)
@@ -115,8 +131,67 @@ func Cat(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func Pin(w http.ResponseWriter, r *http.Request) {}
-func Unpin(w http.ResponseWriter, r *http.Request) {}
+func Pin(w http.ResponseWriter, r *http.Request) {
+        r.ParseForm()
+        key := r.FormValue("key")
+        if len(key) != 40 {
+                fmt.Println("length of key is off, aborting")
+                return
+        }
+        id := d7024e.NewRandomKademliaID()
+        msgchan := d7024e.NewMessageChannel(id)
+        mgr.AddMessageChannel(msgchan)
+        message := buildMsg([]string{"SERVER", addr, "pin", key, "", id.String()})
+        sendMsg(target, message)
+        select {
+        case response := <-msgchan.Channel:
+                key := response.GetKey()
+                response_object := &ResponseData{}
+                response_object.Key = key
+                json.NewEncoder(w).Encode(response_object)
+        case <-time.After(ttl):
+                response_object := &ResponseData{}
+                response_object.Key = "ERROR"
+                json.NewEncoder(w).Encode(response_object)
+                fmt.Println("request timed out 2")
+        }
+        close(msgchan.Channel)
+        mgr.RemoveMessageChannel(id)
+
+        return
+	
+
+}
+func Unpin(w http.ResponseWriter, r *http.Request) {
+        r.ParseForm()
+        key := r.FormValue("key")
+        if len(key) != 40 {
+                fmt.Println("length of key is off, aborting")
+                return
+        }
+        id := d7024e.NewRandomKademliaID()
+        msgchan := d7024e.NewMessageChannel(id)
+        mgr.AddMessageChannel(msgchan)
+        message := buildMsg([]string{"SERVER", addr, "unpin", key, "", id.String()})
+        sendMsg(target, message)
+        select {
+        case response := <-msgchan.Channel:
+                key := response.GetKey()
+                response_object := &ResponseData{}
+                response_object.Key = key
+                json.NewEncoder(w).Encode(response_object)
+        case <-time.After(ttl):
+                response_object := &ResponseData{}
+                response_object.Key = "ERROR"
+                json.NewEncoder(w).Encode(response_object)
+                fmt.Println("request timed out 2")
+        }
+        close(msgchan.Channel)
+        mgr.RemoveMessageChannel(id)
+
+        return
+
+}
 
 func buildMsg(input []string) *pb.KMessage {
 	msg := &pb.KMessage{

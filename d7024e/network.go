@@ -84,6 +84,10 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	}
 	//update RoutingTable here?
 	switch message.GetMsgType() {
+	case "pin":
+		network.kademlia.Pin(message.GetKey())
+	case "unpin":
+		network.kademlia.Unpin(message.GetKey())
 	case "ping":
 		fmt.Println("ping received from", message.GetSndrAddress())
 		response := buildMsg([]string{me.ID.String(), me.Address, "pong", message.GetRpcID()})
@@ -188,7 +192,33 @@ func handleServerRequest(me *Contact, network *Network, message *pb.KMessage) {
 		_, data := network.kademlia.SendFindValue(key)
 		response := buildMsgServer([]string{me.ID.String(), me.Address, "find_val", key, string(data[:]), message.GetRpcID()})
 		sendMsg(message.GetSndrAddress(), response)
+	case "pin":
+		key := message.GetKey()
+		kclosest, _, _ := network.kademlia.IterativeLookup("FIND_CONTACT", NewKademliaID(key))
+		for _, contact := range kclosest {
+			network.SendPinMessage(NewKademliaID(key), &contact)
+		}
+		response := buildMsgServer([]string{me.ID.String(), me.Address, "pin", key, "", message.GetRpcID()})
+		sendMsg(message.GetSndrAddress(), response)
+	case "unpin":
+		key := message.GetKey()
+		kclosest, _, _ := network.kademlia.IterativeLookup("FIND_CONTACT", NewKademliaID(key))
+		for _, contact := range kclosest {
+			network.SendUnpinMessage(NewKademliaID(key), &contact)
+		}
+		response := buildMsgServer([]string{me.ID.String(), me.Address, "unpin", key, "", message.GetRpcID()})
+		sendMsg(message.GetSndrAddress(), response)
+
 	}
+}
+func (network *Network) SendPinMessage(key *KademliaID, contact *Contact) {
+	msg := buildMsg([]string{network.me.ID.String(), network.me.Address, "pin", key.String()})
+	sendMsg(contact.Address, msg)
+}
+
+func (network *Network) SendUnpinMessage(key *KademliaID, contact *Contact) {
+        msg := buildMsg([]string{network.me.ID.String(), network.me.Address, "unpin", key.String()})
+        sendMsg(contact.Address, msg)
 }
 
 func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
@@ -214,6 +244,16 @@ func buildMsgServer(input[]string) *pb.KMessage {
 }
 
 func buildMsg(input []string) *pb.KMessage {
+	if input[2] == "pin" || input[2] == "unpin" {
+		msg := &pb.KMessage{
+			SndrID:		input[0],
+			SndrAddress:	input[1],
+			MsgType:	input[2],
+			Key:		input[3],
+
+		}
+		return msg
+	}
 	if input[2] == "ping" || input[2] == "pong" {
 		msg := &pb.KMessage{
 			SndrID:      input[0],//proto.String(input[0]),

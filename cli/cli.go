@@ -82,7 +82,27 @@ func cat(hash, tar string) error {
 	return nil
 
 }
-func pin(hash, tar string) {
+func pin(hash, tar string) error {
+        resp, err := http.PostForm(tar+"pin", url.Values{"key": {hash}})
+        if err != nil {
+                return err
+        }
+        defer resp.Body.Close()
+        var data ResponseData
+        json.NewDecoder(resp.Body).Decode(&data)
+        fmt.Println("Pinned ", data.Key, " on max 20 nodes")
+        return nil
+
 }
-func unpin(hash, tar string) {
+func unpin(hash, tar string) error {
+        resp, err := http.PostForm(tar+"unpin", url.Values{"key": {hash}})
+        if err != nil {
+                return err
+        }
+        defer resp.Body.Close()
+        var data ResponseData
+        json.NewDecoder(resp.Body).Decode(&data)
+        fmt.Println("Unpinned ", data.Key, " on max 20 nodes")
+        return nil
+
 }

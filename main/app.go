@@ -18,18 +18,29 @@ import (
 //just testing deployment of go in a docker container, and subsequently
 // deploying a cluster using docker swarm
 func main() {
-	
-
-
+	base := os.Getenv("BASENODE")
 	rawip := getIP()
 	ip := rawip+":8000"
 	split_ip := strings.Split(rawip, ".")
 	seed, _ := strconv.Atoi(split_ip[3])
-       // tarip := "172.17.0.2:8000" // for normal docker run
-	tarip := "10.0.0.4:8000" // for docker swarm
+	var tarip string
+	for {
+		addrs, err := net.LookupIP("baseNode")
+		if err != nil {
+			fmt.Println("basenode not found, trying again in 2 seconds")
+			time.Sleep(2 * time.Second)
+		} else {
+			tarip = addrs[0].String()+":8000"
+			break
+		}
+	}
+	
+
+
 	var me d7024e.Contact
-	if tarip == ip { // base bootstrap node
+	if base == "1" { // base bootstrap node
                 me = d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), ip)
+		rand.Seed(time.Now().UTC().UnixNano())
         } else {
 		for i := 0; i < seed; i++ {
 	    		rand.Seed(time.Now().UTC().UnixNano())
@@ -61,7 +72,7 @@ func main() {
 	kademlia.Alpha = 3
 	kademlia.Me = me
 	go net.Listen(me, 8000)
-	if ip != tarip {
+	if base != "1" {
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
 		success := kademlia.Bootstrap()
 		for !success {
