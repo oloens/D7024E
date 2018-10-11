@@ -78,9 +78,14 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 	if err != nil {
 		fmt.Println(err)
 	}
+	if message.GetSndrID()=="SERVER" {
+		handleServerRequest(me, network, message)
+		return
+	}
 	//update RoutingTable here?
 	switch message.GetMsgType() {
 	case "ping":
+		fmt.Println("ping received from", message.GetSndrAddress())
 		response := buildMsg([]string{me.ID.String(), me.Address, "pong", message.GetRpcID()})
 		sender := NewContact(NewKademliaID(message.GetSndrID()), message.GetSndrAddress())
 		network.kademlia.RtMtx.Lock()
@@ -170,7 +175,21 @@ func handleMsg(channel chan []byte, me *Contact, network *Network) {
 
 	}
 }
-
+func handleServerRequest(me *Contact, network *Network, message *pb.KMessage) {
+	switch message.GetMsgType() {
+	case "store":
+		value := message.GetData()
+		hash := Hash(value)
+		network.kademlia.SendStore(hash, value)
+		response := buildMsgServer([]string{me.ID.String(), me.Address, "store", hash, "", message.GetRpcID()})
+		sendMsg(message.GetSndrAddress(), response)
+	case "find_val":
+		key := message.GetKey()
+		_, data := network.kademlia.SendFindValue(key)
+		response := buildMsgServer([]string{me.ID.String(), me.Address, "find_val", key, string(data[:]), message.GetRpcID()})
+		sendMsg(message.GetSndrAddress(), response)
+	}
+}
 
 func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
                 msg := &pb.KMessage{
@@ -182,6 +201,18 @@ func buildMsgWithArray(input []string, contacts []string) *pb.KMessage {
 		}
 		return msg
 }
+func buildMsgServer(input[]string) *pb.KMessage {
+	msg := &pb.KMessage{
+		SndrID:		input[0],
+		SndrAddress:	input[1],
+		MsgType:	input[2],
+		Key:		input[3],
+		Data:		[]byte(input[4]),
+		RpcID:		input[5],
+	}
+	return msg
+}
+
 func buildMsg(input []string) *pb.KMessage {
 	if input[2] == "ping" || input[2] == "pong" {
 		msg := &pb.KMessage{
