@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"d7024e"
 	"net"
-	pb "protobuf"
-	proto "proto"
 	"strconv"
 	"bufio"
 	"os"
@@ -18,18 +16,29 @@ import (
 //just testing deployment of go in a docker container, and subsequently
 // deploying a cluster using docker swarm
 func main() {
-	
-
-
+	base := os.Getenv("BASENODE")
 	rawip := getIP()
 	ip := rawip+":8000"
 	split_ip := strings.Split(rawip, ".")
 	seed, _ := strconv.Atoi(split_ip[3])
-       // tarip := "172.17.0.2:8000" // for normal docker run
-	tarip := "10.0.0.4:8000" // for docker swarm
+	var tarip string
+	for {
+		addrs, err := net.LookupIP("baseNode")
+		if err != nil {
+			fmt.Println("basenode not found, trying again in 2 seconds")
+			time.Sleep(2 * time.Second)
+		} else {
+			tarip = addrs[0].String()+":8000"
+			break
+		}
+	}
+	
+
+
 	var me d7024e.Contact
-	if tarip == ip { // base bootstrap node
+	if base == "1" { // base bootstrap node
                 me = d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), ip)
+		rand.Seed(time.Now().UTC().UnixNano())
         } else {
 		for i := 0; i < seed; i++ {
 	    		rand.Seed(time.Now().UTC().UnixNano())
@@ -61,7 +70,7 @@ func main() {
 	kademlia.Alpha = 3
 	kademlia.Me = me
 	go net.Listen(me, 8000)
-	if ip != tarip {
+	if base != "1" {
 		kademlia.Rt.AddContact(d7024e.NewContact(d7024e.NewKademliaID("8d92ca43f193dee47f591549f597a811c8fa67ab"), tarip))
 		success := kademlia.Bootstrap()
 		for !success {
@@ -138,63 +147,6 @@ func getIP() string {
                 return ip.String()
         }
 	return "error"
-    }
-func buildMessage() *pb.KMessage {
-	t1 := "testaddress"
-	msg := &pb.KMessage{
-		SndrAddress: t1,//proto.String(t1),
-	}
-	return msg
 }
-func tempListen(c chan *pb.KMessage) {
-	udpAddr, err := net.ResolveUDPAddr("udp", ":8000")
-	if err != nil {
-		fmt.Println("error on resolveudpaddr")
-	}
-	udpconn, err := net.ListenUDP("udp", udpAddr)
-	if err != nil {
-		fmt.Println("Error on listenUDP")
-	}
-	fmt.Println("listening")
-	for {
-		//time.Sleep(500 * time.Millisecond)
-		 receiveUDP(udpconn, c)
-	}
 
 
-}
-func receiveUDP(conn net.Conn, c chan *pb.KMessage) {
-	//fmt.Println("here")
-	//defer conn.Close() //close connection upon function termination
-	data := make([]byte, 2048)
-	n, err := conn.Read(data)
-	//fmt.Println("here2")
-	if err != nil {
-		fmt.Println("Error reading data")
-	}
-	pbdata := new(pb.KMessage)
-	//fmt.Println("here3")
-	proto.Unmarshal(data[0:n], pbdata)
-	//fmt.Println("msg received:", pbdata.GetSndrAddress())
-	//temporary print
-	c <- pbdata
-	fmt.Println("msg received:", pbdata.GetSndrAddress())
-}
-func sendUDP(msg *pb.KMessage, target *d7024e.Contact) {
-	ip := target.Address
-	//fmt.Println(ip)
-	conn, err := net.Dial("udp", ip)
-	if err != nil {
-		fmt.Println("error dialing for send")
-		return
-	}
-	//TODO marshal msg into data
-	data, err := proto.Marshal(msg)
-	if err != nil {
-		fmt.Println("error marshaling msg")
-		return
-	}
-	conn.Write(data)
-	///conn.Close()
-
-}
